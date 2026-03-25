@@ -1,12 +1,17 @@
 from fastapi import APIRouter, HTTPException
 from .supabase_client import supabase
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 router = APIRouter()
+
 
 class AuthRequest(BaseModel):
     email: str
     password: str
+
+
+class EmailRequest(BaseModel):
+    email: EmailStr
 
 
 @router.post("/signup")
@@ -31,3 +36,21 @@ def login(data: AuthRequest):
         return response
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+
+@router.post("/check-email")
+def check_email(request: EmailRequest):
+    try:
+        response = (
+            supabase
+            .table("users_emails")
+            .select("email")
+            .eq("email", request.email)
+            .limit(1)
+            .execute()
+        )
+        exists = len(response.data) > 0
+        return {"email": request.email, "exists": exists}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Erro ao verificar email:")
