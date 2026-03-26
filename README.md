@@ -17,6 +17,10 @@ API backend do projeto **MaréPE**, desenvolvida com **FastAPI** e integrada ao 
 ```
 api-backend/
   app/
+    core/
+    routers/
+    schemas/
+    services/
     main.py
   requirements.txt
   .env
@@ -27,7 +31,7 @@ api-backend/
 
 ## ⚙️ Setup do Ambiente
 
-### 🔹 1. Clonar o repositório
+## 🔹Clonar o repositório
 
 ```bash
 git clone <URL_DO_REPO>
@@ -75,25 +79,20 @@ SUPABASE_KEY=your_key_here
 
 ---
 
-## 🌿 Padrão de Git
+## ▶️ Iniciando o servidor
 
-### Branches
+Para iniciar a API localmente com Uvicorn, execute:
 
-- `main` → estável
-- `feat/...` → novas funcionalidades
-- `fix/...` → correções
+```bash
+uvicorn app.main:app --reload
+```
 
 ---
 
-### Commits
+## 🌐 Acessando a API
 
-Padrão:
-
-```
-feat: add login endpoint
-fix: correct token validation
-docs: update readme
-```
+API: http://127.0.0.1:8000 \
+Docs interativa (Swagger): http://127.0.0.1:8000/docs
 
 ---
 
