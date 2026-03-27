@@ -1,6 +1,8 @@
 from fastapi import HTTPException
 from app.core.supabase_client import supabase
 
+# --- Fluxo de Cadastro e Verificação ---
+
 
 def signup_user(data: dict):
     try:
@@ -37,13 +39,29 @@ def signup_user(data: dict):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-def login_user(email: str, password: str):
+def verify_signup_code(email: str, token: str):
     try:
-        response = supabase.auth.sign_in_with_password(
-            {"email": email, "password": password})
-        return response
+        # O tipo 'email' é usado para confirmação de cadastro (Signup OTP)
+        return supabase.auth.verify_otp({
+            "email": email,
+            "token": token,
+            "type": "email"
+        })
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+# --- Fluxo de Login e Checagem ---
+
+
+def login_user(email: str, password: str):
+    try:
+        return supabase.auth.sign_in_with_password({
+            "email": email,
+            "password": password
+        })
+    except Exception as e:
+        raise HTTPException(
+            status_code=401, detail="E-mail ou senha incorretos.")
 
 
 def check_email_exists(email: str) -> bool:
@@ -56,17 +74,40 @@ def check_email_exists(email: str) -> bool:
             .execute()
         )
         return len(response.data) > 0
-    except Exception:
-        raise HTTPException(status_code=400, detail="Erro ao verificar email")
-
-
-def verify_signup_code(email: str, token: str):
-    try:
-        response = supabase.auth.verify_otp({
-            "email": email,
-            "token": token,
-            "type": "email"
-        })
-        return response
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+# --- Recuperação de Senha e Logout ---
+
+
+def send_recovery_email(email: str):
+    try:
+        return supabase.auth.reset_password_for_email(email)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+def reset_password_with_otp(email: str, token: str, new_password: str):
+    try:
+        verify_res = supabase.auth.verify_otp({
+            "email": email,
+            "token": token,
+            "type": "recovery"
+        })
+
+        if verify_res.session:
+            return supabase.auth.update_user({
+                "password": new_password
+            })
+
+        raise HTTPException(
+            status_code=400, detail="Token de recuperação inválido.")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+def logout():
+    try:
+        return supabase.auth.sign_out()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Erro ao deslogar.")

@@ -13,13 +13,11 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Rota raiz
     @app.get("/")
     def root():
         return {"msg": "API funcionando"}
 
-    # Incluindo routers
-    app.include_router(auth_router, prefix="/auth", tags=["auth"])
+    app.include_router(auth_router, prefix="/auth")
 
     return app
 
