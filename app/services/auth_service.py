@@ -65,7 +65,7 @@ def verify_signup_code(email: str, token: str):
         response = supabase.auth.verify_otp({
             "email": email,
             "token": token,
-            "type": email
+            "type": "email"
         })
         return response
     except Exception as e:
