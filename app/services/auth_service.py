@@ -49,7 +49,7 @@ def login_user(email: str, password: str):
 def check_email_exists(email: str) -> bool:
     try:
         response = (
-            supabase.table("users_emails")
+            supabase.table("users")
             .select("email")
             .eq("email", email)
             .limit(1)
