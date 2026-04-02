@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from app.core.supabase_client import supabase
+from app.schemas.auth import AuthError
 
 # --- Fluxo de Cadastro e Verificação ---
 
@@ -111,3 +112,13 @@ def logout():
         return supabase.auth.sign_out()
     except Exception as e:
         raise HTTPException(status_code=400, detail="Erro ao deslogar.")
+
+
+def resend_signup_email(email: str):
+    try:
+        return supabase.auth.resend({
+            "type": "signup",
+            "email": email
+        })
+    except Exception:
+        raise AuthError("Erro ao reenviar email")

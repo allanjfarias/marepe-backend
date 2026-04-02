@@ -45,3 +45,6 @@ class ResetPasswordRequest(BaseModel):
 
 class MessageResponse(BaseModel):
     message: str
+
+class AuthError(Exception):
+    pass

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, status
 from typing import Union
 
 from app.schemas.auth import (
-    BarraqueiroSignup, AmbulanteSignup, ClienteSignup, AuthRequest,
+    AuthError, BarraqueiroSignup, AmbulanteSignup, ClienteSignup, AuthRequest,
     EmailRequest, VerifyEmailRequest, ForgotPasswordRequest,
     ResetPasswordRequest, MessageResponse
 )
@@ -81,3 +81,12 @@ async def reset_password(data: ResetPasswordRequest):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Não foi possível redefinir a senha. O código pode estar incorreto ou expirado."
         )
+
+
+@router.post("/resend-signup")
+async def resend_signup(data: EmailRequest):
+    try:
+        auth_service.resend_signup_email(data.email)
+        return {"message": "Código reenviado"}
+    except AuthError as e:
+        raise HTTPException(status_code=400, detail=str(e))
