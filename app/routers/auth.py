@@ -55,7 +55,7 @@ async def logout_endpoint():
         return {"message": "Sessão encerrada com sucesso."}
     except Exception as e:
         raise HTTPException(
-            status_code=400, detail="Erro ao processar logout.")
+            status_code=400, detail="Não foi possível sair da conta no momento. Tente novamente.")
 
 
 @router.post("/forgot-password", response_model=MessageResponse)

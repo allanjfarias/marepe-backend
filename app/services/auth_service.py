@@ -2,8 +2,6 @@ from fastapi import HTTPException
 from app.core.supabase_client import supabase
 from app.schemas.auth import AuthError
 
-# --- Fluxo de Cadastro e Verificação ---
-
 
 def signup_user(data: dict):
     try:
@@ -111,7 +109,7 @@ def logout():
     try:
         return supabase.auth.sign_out()
     except Exception as e:
-        raise HTTPException(status_code=400, detail="Erro ao deslogar.")
+        raise HTTPException(status_code=400, detail="Não foi possível sair da conta no momento. Tente novamente.")
 
 
 def resend_signup_email(email: str):
