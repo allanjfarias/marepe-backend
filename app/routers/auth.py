@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, status, Form, File, UploadFile
-from typing import Optional
+from typing import Optional,Union,Literal
 
 from app.schemas.auth import (
-    AuthError, AuthRequest, DatabaseError, EmailRequest, ForgotPasswordRequest, MessageResponse, ResetPasswordRequest, UploadError, VendedorResponse, VerifyEmailRequest
+    AuthError, AuthRequest, DatabaseError, EmailRequest, ForgotPasswordRequest, MessageResponse, ResetPasswordRequest, UploadError, ClienteResponse,AmbulanteResponse,BarraqueiroResponse, VerifyEmailRequest
 )
 
 from app.services import auth_service
@@ -11,21 +11,37 @@ router = APIRouter(tags=["Auth"])
 
 @router.post(
     "/signup",
-    response_model=VendedorResponse,
+    response_model=Union[
+        ClienteResponse,
+        AmbulanteResponse,
+        BarraqueiroResponse
+    ],
     status_code=status.HTTP_201_CREATED
 )
 async def signup(
     email: str = Form(...),
     password: str = Form(...),
     nome: str = Form(...),
-    role: str = Form(...),
+    role: Literal["CLIENTE", "AMBULANTE", "BARRAQUEIRO"] = Form(...),
 
     cpf: Optional[str] = Form(None),
     telefone: Optional[str] = Form(None),
     nome_barraca: Optional[str] = Form(None),
 
-    foto: UploadFile = File(None)
+    foto: Optional[UploadFile] = File(None)
 ):
+    if role == "CLIENTE":
+        if cpf or telefone or nome_barraca:
+            raise HTTPException(400, "Cliente não deve enviar cpf, telefone ou nome_barraca")
+
+    if role == "AMBULANTE":
+        if not cpf or not telefone:
+            raise HTTPException(400, "Ambulante deve enviar cpf e telefone")
+
+    if role == "BARRAQUEIRO":
+        if not cpf or not telefone or not nome_barraca:
+            raise HTTPException(400, "Barraqueiro deve enviar cpf, telefone e nome_barraca")
+
     data = {
         "email": email,
         "password": password,
@@ -40,27 +56,16 @@ async def signup(
         return await auth_service.signup_user(data, foto)
 
     except AuthError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=400, detail=str(e))
 
     except UploadError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
     except DatabaseError as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(e)
-        )
+        raise HTTPException(status_code=500, detail=str(e))
 
     except Exception:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro inesperado no servidor")
+        raise HTTPException(status_code=500, detail="Erro inesperado no servidor")
 
 
 @router.post("/signup-otp", response_model=MessageResponse)

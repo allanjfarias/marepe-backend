@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, Literal
 
 
 class AuthRequest(BaseModel):
@@ -19,42 +19,40 @@ class VerifyEmailRequest(BaseModel):
 class BaseSignup(BaseModel):
     email: EmailStr
     password: str = Field(..., min_length=8,
-                          description="A senha deve ter ao menos 8 caracteres")
+                         description="A senha deve ter ao menos 8 caracteres")
     nome: str
-    role: str  # 'CLIENTE', 'AMBULANTE' ou 'BARRAQUEIRO'
-
 
 class ClienteSignup(BaseSignup):
-    pass
+    role: Literal["CLIENTE"]
 
-
-class VendedorSignup(BaseSignup):
+class AmbulanteSignup(BaseSignup):
+    role: Literal["AMBULANTE"]
     cpf: str
     telefone: str
 
-
-class AmbulanteSignup(VendedorSignup):
-    pass
-
-
-class BarraqueiroSignup(VendedorSignup):
+class BarraqueiroSignup(AmbulanteSignup):
+    role: Literal["BARRAQUEIRO"]
     nome_barraca: str
 
-
-class VendedorResponse(BaseModel):
+class AmbulanteResponse(BaseModel):
     user_id: str
     nome: str
     email: str
-    role: str
+    role: Literal["AMBULANTE"]
 
     cpf: str
     telefone: str
-    nome_barraca: str | None = None
-
     foto_url: str | None = None
 
+class BarraqueiroResponse(AmbulanteResponse):
+    role: Literal["BARRAQUEIRO"]
+    nome_barraca: str
 
-
+class ClienteResponse(BaseModel):
+    user_id: str
+    nome: str
+    email: str
+    role: Literal["CLIENTE"]
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr

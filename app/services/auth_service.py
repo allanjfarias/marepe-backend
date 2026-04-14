@@ -1,12 +1,49 @@
 from fastapi import HTTPException
 from app.core.supabase_client import supabase
-from app.schemas.auth import AuthError, DatabaseError, UploadError
+from app.schemas.auth import AuthError, DatabaseError, UploadError,AmbulanteResponse,ClienteResponse,BarraqueiroResponse
 from app.core.logger import logger
 
 
+
+def build_response(role: str, user_id: str, data: dict, foto_url: str | None):
+    response_map = {
+        "CLIENTE": lambda: ClienteResponse(
+            user_id=user_id,
+            nome=data["nome"],
+            email=data["email"],
+            role="CLIENTE"
+        ),
+
+        "AMBULANTE": lambda: AmbulanteResponse(
+            user_id=user_id,
+            nome=data["nome"],
+            email=data["email"],
+            role="AMBULANTE",
+            cpf=data["cpf"],
+            telefone=data["telefone"],
+            foto_url=foto_url
+        ),
+
+        "BARRAQUEIRO": lambda: BarraqueiroResponse(
+            user_id=user_id,
+            nome=data["nome"],
+            email=data["email"],
+            role="BARRAQUEIRO",
+            cpf=data["cpf"],
+            telefone=data["telefone"],
+            nome_barraca=data["nome_barraca"],
+            foto_url=foto_url
+        ),
+    }
+
+    try:
+        return response_map[role]()
+    except KeyError:
+        raise AuthError(f"Role inválido: {role}")
+    
+
 async def signup_user(data: dict, foto=None):
 
-    # 1. cria usuário no Supabase Auth
     auth_response = supabase.auth.sign_up({
         "email": data["email"],
         "password": data["password"],
@@ -25,7 +62,7 @@ async def signup_user(data: dict, foto=None):
 
     user_id = user.id
 
-    # 2. upload da foto
+    
     foto_url = None
 
     if foto:
@@ -38,56 +75,37 @@ async def signup_user(data: dict, foto=None):
             upload_res = supabase.storage.from_("perfil").upload(
                 path=file_path,
                 file=file_bytes,
-                file_options={"content-type": foto.content_type},)
+                file_options={"content-type": foto.content_type},
+            )
 
             if not upload_res:
                 raise UploadError("Falha no upload da imagem")
 
-            foto_url = supabase.storage.from_(
-                "perfil").get_public_url(file_path)
+            foto_url = supabase.storage.from_("perfil").get_public_url(file_path)
 
         except Exception as e:
             raise UploadError(f"Erro ao enviar imagem: {str(e)}")
 
-    # 3. se cliente, não grava na tabela vendedores
-    if data["role"] == "CLIENTE":
-        return {
-            "user_id": user_id,
-            "nome": data["nome"],
-            "email": data["email"],
-            "role": data["role"],
-            "foto_url": foto_url
-        }
+   
+    if data["role"] != "CLIENTE":
+        try:
+            vendedor_data = {
+                "user_id": user_id,
+                "cpf": data["cpf"],
+                "telefone": data["telefone"],
+                "foto_url": foto_url
+            }
 
-    # 4. monta vendedor
-    try:
-        vendedor_data = {
-            "user_id": user_id,
-            "cpf": data["cpf"],
-            "telefone": data["telefone"],
-            "foto_url": foto_url
-        }
+            if data["role"] == "BARRAQUEIRO":
+                vendedor_data["nome_barraca"] = data["nome_barraca"]
 
-        if data["role"] == "BARRAQUEIRO":
-            vendedor_data["nome_barraca"] = data["nome_barraca"]
+            supabase.table("vendedores").insert(vendedor_data).execute()
 
-        supabase.table("vendedores").insert(vendedor_data).execute()
+        except Exception as e:
+            raise DatabaseError(f"Erro ao salvar vendedor: {str(e)}")
 
-    except Exception as e:
-        raise DatabaseError(f"Erro ao salvar vendedor: {str(e)}")
 
-    # 5. response final
-    return {
-        "user_id": user_id,
-        "nome": data["nome"],
-        "email": data["email"],
-        "role": data["role"],
-        "cpf": data["cpf"],
-        "telefone": data["telefone"],
-        "nome_barraca": data.get("nome_barraca"),
-        "foto_url": foto_url
-    }
-
+    return build_response(data["role"], user_id, data, foto_url)
 
 def login_user(email: str, password: str):
     try:
