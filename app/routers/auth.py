@@ -1,22 +1,66 @@
-from fastapi import APIRouter, HTTPException, status
-from typing import Union
+from fastapi import APIRouter, HTTPException, status, Form, File, UploadFile
+from typing import Optional
 
 from app.schemas.auth import (
-    AuthError, BarraqueiroSignup, AmbulanteSignup, ClienteSignup, AuthRequest,
-    EmailRequest, VerifyEmailRequest, ForgotPasswordRequest,
-    ResetPasswordRequest, MessageResponse
+    AuthError, AuthRequest, DatabaseError, EmailRequest, ForgotPasswordRequest, MessageResponse, ResetPasswordRequest, UploadError, VendedorResponse, VerifyEmailRequest
 )
+
 from app.services import auth_service
 
 router = APIRouter(tags=["Auth"])
 
+@router.post(
+    "/signup",
+    response_model=VendedorResponse,
+    status_code=status.HTTP_201_CREATED
+)
+async def signup(
+    email: str = Form(...),
+    password: str = Form(...),
+    nome: str = Form(...),
+    role: str = Form(...),
 
-@router.post("/signup", status_code=status.HTTP_201_CREATED)
-async def signup(data: Union[BarraqueiroSignup, AmbulanteSignup, ClienteSignup]):
+    cpf: Optional[str] = Form(None),
+    telefone: Optional[str] = Form(None),
+    nome_barraca: Optional[str] = Form(None),
+
+    foto: UploadFile = File(None)
+):
+    data = {
+        "email": email,
+        "password": password,
+        "nome": nome,
+        "role": role,
+        "cpf": cpf,
+        "telefone": telefone,
+        "nome_barraca": nome_barraca,
+    }
+
     try:
-        return auth_service.signup_user(data.model_dump())
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        return await auth_service.signup_user(data, foto)
+
+    except AuthError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+
+    except UploadError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+    except DatabaseError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erro inesperado no servidor")
 
 
 @router.post("/signup-otp", response_model=MessageResponse)
@@ -27,8 +71,6 @@ async def verify_email_otp(data: VerifyEmailRequest):
     except Exception as e:
         raise HTTPException(
             status_code=400, detail="Código de verificação inválido ou expirado.")
-
-# ---  ---
 
 
 @router.post("/login")
