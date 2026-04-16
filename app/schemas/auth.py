@@ -1,50 +1,81 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional
+from typing import Optional, Literal
 
 
 class AuthRequest(BaseModel):
     email: EmailStr
     password: str
 
+
 class EmailRequest(BaseModel):
     email: EmailStr
+
 
 class VerifyEmailRequest(BaseModel):
     email: EmailStr
     token: str
 
+
 class BaseSignup(BaseModel):
     email: EmailStr
-    password: str = Field(..., min_length=8, description="A senha deve ter ao menos 8 caracteres")
+    password: str = Field(..., min_length=8,
+                         description="A senha deve ter ao menos 8 caracteres")
     nome: str
-    role: str # 'CLIENTE', 'AMBULANTE' ou 'BARRAQUEIRO'
 
 class ClienteSignup(BaseSignup):
-    pass
+    role: Literal["CLIENTE"]
 
-class VendedorSignup(BaseSignup):
+class AmbulanteSignup(BaseSignup):
+    role: Literal["AMBULANTE"]
     cpf: str
     telefone: str
-    
-class AmbulanteSignup(VendedorSignup):
-    pass
 
-class BarraqueiroSignup(VendedorSignup):
+class BarraqueiroSignup(AmbulanteSignup):
+    role: Literal["BARRAQUEIRO"]
     nome_barraca: str
 
-# --- Fluxo de Recuperação de Senha ---
+class AmbulanteResponse(BaseModel):
+    user_id: str
+    nome: str
+    email: str
+    role: Literal["AMBULANTE"]
+
+    cpf: str
+    telefone: str
+    foto_url: str | None = None
+
+class BarraqueiroResponse(AmbulanteResponse):
+    role: Literal["BARRAQUEIRO"]
+    nome_barraca: str
+
+class ClienteResponse(BaseModel):
+    user_id: str
+    nome: str
+    email: str
+    role: Literal["CLIENTE"]
 
 class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
+
 class ResetPasswordRequest(BaseModel):
     email: EmailStr
     token: str = Field(..., description="Código OTP enviado por e-mail")
-    new_password: str = Field(..., min_length=8, description="A nova senha deve ter ao menos 8 caracteres")
+    new_password: str = Field(..., min_length=8,
+                              description="A nova senha deve ter ao menos 8 caracteres")
 
 
 class MessageResponse(BaseModel):
     message: str
 
+
 class AuthError(Exception):
+    pass
+
+
+class UploadError(Exception):
+    pass
+
+
+class DatabaseError(Exception):
     pass

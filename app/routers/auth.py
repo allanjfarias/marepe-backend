@@ -1,22 +1,71 @@
-from fastapi import APIRouter, HTTPException, status
-from typing import Union
+from fastapi import APIRouter, HTTPException, status, Form, File, UploadFile
+from typing import Optional,Union,Literal
 
 from app.schemas.auth import (
-    AuthError, BarraqueiroSignup, AmbulanteSignup, ClienteSignup, AuthRequest,
-    EmailRequest, VerifyEmailRequest, ForgotPasswordRequest,
-    ResetPasswordRequest, MessageResponse
+    AuthError, AuthRequest, DatabaseError, EmailRequest, ForgotPasswordRequest, MessageResponse, ResetPasswordRequest, UploadError, ClienteResponse,AmbulanteResponse,BarraqueiroResponse, VerifyEmailRequest
 )
+
 from app.services import auth_service
 
 router = APIRouter(tags=["Auth"])
 
+@router.post(
+    "/signup",
+    response_model=Union[
+        ClienteResponse,
+        AmbulanteResponse,
+        BarraqueiroResponse
+    ],
+    status_code=status.HTTP_201_CREATED
+)
+async def signup(
+    email: str = Form(...),
+    password: str = Form(...),
+    nome: str = Form(...),
+    role: Literal["CLIENTE", "AMBULANTE", "BARRAQUEIRO"] = Form(...),
 
-@router.post("/signup", status_code=status.HTTP_201_CREATED)
-async def signup(data: Union[BarraqueiroSignup, AmbulanteSignup, ClienteSignup]):
+    cpf: Optional[str] = Form(None),
+    telefone: Optional[str] = Form(None),
+    nome_barraca: Optional[str] = Form(None),
+
+    foto: Optional[UploadFile] = File(None)
+):
+    if role == "CLIENTE":
+        if cpf or telefone or nome_barraca:
+            raise HTTPException(400, "Cliente não deve enviar cpf, telefone ou nome_barraca")
+
+    if role == "AMBULANTE":
+        if not cpf or not telefone:
+            raise HTTPException(400, "Ambulante deve enviar cpf e telefone")
+
+    if role == "BARRAQUEIRO":
+        if not cpf or not telefone or not nome_barraca:
+            raise HTTPException(400, "Barraqueiro deve enviar cpf, telefone e nome_barraca")
+
+    data = {
+        "email": email,
+        "password": password,
+        "nome": nome,
+        "role": role,
+        "cpf": cpf,
+        "telefone": telefone,
+        "nome_barraca": nome_barraca,
+    }
+
     try:
-        return auth_service.signup_user(data.model_dump())
-    except Exception as e:
+        return await auth_service.signup_user(data, foto)
+
+    except AuthError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    except UploadError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    except DatabaseError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    except Exception:
+        raise HTTPException(status_code=500, detail="Erro inesperado no servidor")
 
 
 @router.post("/signup-otp", response_model=MessageResponse)
@@ -27,8 +76,6 @@ async def verify_email_otp(data: VerifyEmailRequest):
     except Exception as e:
         raise HTTPException(
             status_code=400, detail="Código de verificação inválido ou expirado.")
-
-# ---  ---
 
 
 @router.post("/login")
@@ -55,7 +102,7 @@ async def logout_endpoint():
         return {"message": "Sessão encerrada com sucesso."}
     except Exception as e:
         raise HTTPException(
-            status_code=400, detail="Erro ao processar logout.")
+            status_code=400, detail="Não foi possível sair da conta no momento. Tente novamente.")
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
