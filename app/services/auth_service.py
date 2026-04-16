@@ -60,7 +60,6 @@ async def signup_user(data: dict, foto=None):
         raise AuthError("Falha ao criar usuário")
 
     user_id = user.id
-
     foto_url = None
 
     if foto:
@@ -69,18 +68,21 @@ async def signup_user(data: dict, foto=None):
             file_path = f"{user_id}/profile.{file_ext}"
 
             file_bytes = await foto.read()
+            file_bytes = bytes(file_bytes)
 
             upload_res = supabase.storage.from_("perfil").upload(
-                path=file_path,
-                file=file_bytes,
-                file_options={"content-type": foto.content_type},
+                file_path,
+                file_bytes,
+                {
+                    "content-type": foto.content_type,
+                    "upsert": "true"
+                }
             )
 
             if not upload_res:
                 raise UploadError("Falha no upload da imagem")
 
-            foto_url = supabase.storage.from_(
-                "perfil").get_public_url(file_path)
+            foto_url = supabase.storage.from_("perfil").get_public_url(file_path)
 
         except Exception as e:
             raise UploadError(f"Erro ao enviar imagem: {str(e)}")
