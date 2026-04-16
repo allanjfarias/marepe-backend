@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(pkill *)",
+      "Bash(taskkill //F //IM python.exe)",
+      "Bash(venv/Scripts/python.exe -m pip list)",
+      "Bash(findstr multipart *)",
+      "Bash(venv/Scripts/python.exe -m pip install python-multipart==0.0.26)",
+      "Bash(venv/Scripts/python.exe -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000)",
+      "Bash(curl -s http://localhost:8000/docs)",
+      "Bash(curl -s http://localhost:8000/openapi.json)",
+      "Bash(python -c \"import json, sys; data=json.load\\(sys.stdin\\); print\\(json.dumps\\({k:v for k,v in data['paths'].items\\(\\)}, indent=2\\)\\)\")",
+      "Bash(venv/Scripts/python.exe test_vendedor_features.py)"
+    ]
+  }
+}
