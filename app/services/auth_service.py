@@ -1,8 +1,7 @@
 from fastapi import HTTPException
 from app.core.supabase_client import supabase
-from app.schemas.auth import AuthError, DatabaseError, UploadError,AmbulanteResponse,ClienteResponse,BarraqueiroResponse
+from app.schemas.auth import AuthError, DatabaseError, UploadError, AmbulanteResponse, ClienteResponse, BarraqueiroResponse
 from app.core.logger import logger
-
 
 
 def build_response(role: str, user_id: str, data: dict, foto_url: str | None):
@@ -40,7 +39,7 @@ def build_response(role: str, user_id: str, data: dict, foto_url: str | None):
         return response_map[role]()
     except KeyError:
         raise AuthError(f"Role inválido: {role}")
-    
+
 
 async def signup_user(data: dict, foto=None):
 
@@ -62,7 +61,6 @@ async def signup_user(data: dict, foto=None):
 
     user_id = user.id
 
-    
     foto_url = None
 
     if foto:
@@ -81,12 +79,12 @@ async def signup_user(data: dict, foto=None):
             if not upload_res:
                 raise UploadError("Falha no upload da imagem")
 
-            foto_url = supabase.storage.from_("perfil").get_public_url(file_path)
+            foto_url = supabase.storage.from_(
+                "perfil").get_public_url(file_path)
 
         except Exception as e:
             raise UploadError(f"Erro ao enviar imagem: {str(e)}")
 
-   
     if data["role"] != "CLIENTE":
         try:
             vendedor_data = {
@@ -104,8 +102,8 @@ async def signup_user(data: dict, foto=None):
         except Exception as e:
             raise DatabaseError(f"Erro ao salvar vendedor: {str(e)}")
 
-
     return build_response(data["role"], user_id, data, foto_url)
+
 
 def login_user(email: str, password: str):
     try:
@@ -187,3 +185,14 @@ def resend_signup_email(email: str):
         })
     except Exception:
         raise AuthError("Erro ao reenviar email")
+
+
+def verify_signup_code(email: str, token: str):
+    try:
+        return supabase.auth.verify_otp({
+            "email": email,
+            "token": token,
+            "type": "email"
+        })
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
