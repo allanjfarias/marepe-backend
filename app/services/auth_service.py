@@ -1,5 +1,4 @@
 from fastapi import HTTPException
-from app.core.supabase_client import supabase
 from app.schemas.auth import AuthError, DatabaseError, UploadError, AmbulanteResponse, ClienteResponse, BarraqueiroResponse
 from app.core.logger import logger
 
@@ -41,9 +40,8 @@ def build_response(role: str, user_id: str, data: dict, foto_url: str | None):
         raise AuthError(f"Role inválido: {role}")
 
 
-async def signup_user(data: dict, foto=None):
-
-    auth_response = supabase.auth.sign_up({
+async def signup_user(data: dict,supabase_client, foto=None):
+    auth_response = supabase_client.auth.sign_up({
         "email": data["email"],
         "password": data["password"],
         "options": {
@@ -70,7 +68,7 @@ async def signup_user(data: dict, foto=None):
             file_bytes = await foto.read()
             file_bytes = bytes(file_bytes)
 
-            upload_res = supabase.storage.from_("perfil").upload(
+            upload_res = supabase_client.storage.from_("perfil").upload(
                 file_path,
                 file_bytes,
                 {
@@ -82,7 +80,7 @@ async def signup_user(data: dict, foto=None):
             if not upload_res:
                 raise UploadError("Falha no upload da imagem")
 
-            foto_url = supabase.storage.from_("perfil").get_public_url(file_path)
+            foto_url = supabase_client.storage.from_("perfil").get_public_url(file_path)
 
         except Exception as e:
             raise UploadError(f"Erro ao enviar imagem: {str(e)}")
@@ -99,7 +97,7 @@ async def signup_user(data: dict, foto=None):
             if data["role"] == "BARRAQUEIRO":
                 vendedor_data["nome_barraca"] = data["nome_barraca"]
 
-            supabase.table("vendedores").insert(vendedor_data).execute()
+            supabase_client.table("vendedores").insert(vendedor_data).execute()
 
         except Exception as e:
             raise DatabaseError(f"Erro ao salvar vendedor: {str(e)}")
@@ -107,9 +105,9 @@ async def signup_user(data: dict, foto=None):
     return build_response(data["role"], user_id, data, foto_url)
 
 
-def login_user(email: str, password: str):
+def login_user(email: str, password: str, supabase_client):
     try:
-        return supabase.auth.sign_in_with_password({
+        return supabase_client.auth.sign_in_with_password({
             "email": email,
             "password": password
         })
@@ -118,50 +116,53 @@ def login_user(email: str, password: str):
             status_code=401, detail="E-mail ou senha incorretos.")
 
 
-def check_email_exists(email: str) -> bool:
+def check_email_exists(email: str, supabase_client) -> bool:
+    logger.info(f"[START] email raw={repr(email)} len={len(email)}")
+
+    email_clean = email.strip().lower()
+
+    logger.info(f"[NORMALIZED] email_clean={repr(email_clean)}")
+
+    query = (
+        supabase_client.table("users")
+        .select("id")
+        .eq("email", email_clean)
+        .limit(1)
+    )
+
+    logger.info(f"[QUERY BUILT] {query}")
+
+    response = query.execute()
+
+    logger.info(f"[RAW RESPONSE] {response}")
+
+    data = response.data
+
+    logger.info(f"[DATA] {data}")
+
+    exists = bool(data and len(data) > 0)
+
+    logger.info(f"[EXISTS] {exists}")
+
+    return exists
+
+def send_recovery_email(email: str, supabase_client):
     try:
-        logger.info(f"[check_email_exists] email recebido: {email}")
-
-        response = (
-            supabase.table("users")
-            .select("id")
-            .eq("email", email)
-            .limit(1)
-            .execute()
-        )
-
-        data = response.data if response else None
-
-        logger.info(f"[check_email_exists] response.data: {data}")
-
-        exists = bool(data)
-
-        logger.info(f"[check_email_exists] exists: {exists}")
-
-        return exists
-
-    except Exception as e:
-        logger.error(f"[check_email_exists] ERROR: {str(e)}")
-        return False
-
-
-def send_recovery_email(email: str):
-    try:
-        return supabase.auth.reset_password_for_email(email)
+        return supabase_client.auth.reset_password_for_email(email)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-def reset_password_with_otp(email: str, token: str, new_password: str):
+def reset_password_with_otp(email: str, token: str, new_password: str, supabase_client):
     try:
-        verify_res = supabase.auth.verify_otp({
+        verify_res = supabase_client.auth.verify_otp({
             "email": email,
             "token": token,
             "type": "recovery"
         })
 
         if verify_res.session:
-            return supabase.auth.update_user({
+            return supabase_client.auth.update_user({
                 "password": new_password
             })
 
@@ -171,30 +172,30 @@ def reset_password_with_otp(email: str, token: str, new_password: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-def logout():
+def logout(supabase_client):
     try:
-        return supabase.auth.sign_out()
+        return supabase_client.auth.sign_out()
     except Exception as e:
         raise HTTPException(
-            status_code=400, detail="Não foi possível sair da conta no momento. Tente novamente.")
+            status_code=400, detail=f"Não foi possível sair da conta no momento. Tente novamente. {str(e)}" )
 
 
-def resend_signup_email(email: str):
+def resend_signup_email(email: str, supabase_client):
     try:
-        return supabase.auth.resend({
+        return supabase_client.auth.resend({
             "type": "signup",
             "email": email
         })
-    except Exception:
-        raise AuthError("Erro ao reenviar email")
+    except Exception as e:
+        raise AuthError("Erro ao reenviar email" + str(e))
 
 
-def verify_signup_code(email: str, token: str):
+def verify_signup_code(email: str, token: str, supabase_client):
     try:
-        return supabase.auth.verify_otp({
+        return supabase_client.auth.verify_otp({
             "email": email,
             "token": token,
             "type": "email"
         })
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail= f"Erro ao verificar código de email: {e}")
