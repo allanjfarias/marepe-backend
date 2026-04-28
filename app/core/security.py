@@ -3,12 +3,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.core.supabase_client import get_supabase_client
 from app.core.logger import logger
 
-security = HTTPBearer()  
-
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
 security = HTTPBearer()
+
 
 def get_token(
     credentials: HTTPAuthorizationCredentials = Depends(security)
