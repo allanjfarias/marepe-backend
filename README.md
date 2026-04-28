@@ -96,6 +96,60 @@ Docs interativa (Swagger): http://127.0.0.1:8000/docs
 
 ---
 
+## 📍 Funcionalidades de Vendedor
+
+### Endpoints Implementados
+
+#### `PUT /vendedor/status`
+Atualiza o status do vendedor (online/offline)
+
+**Request:**
+```json
+{
+  "status": "online"  // ou "offline"
+}
+```
+
+**Headers:**
+```
+Authorization: Bearer {token}
+```
+
+#### `POST /vendedor/location`
+Envia a localização atual do vendedor
+
+**Request:**
+```json
+{
+  "latitude": -8.0476,
+  "longitude": -34.8770,
+  "accuracy": 10.5
+}
+```
+
+**Headers:**
+```
+Authorization: Bearer {token}
+```
+
+### Supabase Realtime
+
+A tabela `vendor_locations` está configurada com Supabase Realtime para publicar atualizações em tempo real.
+
+**Documentação completa:**
+- [SUPABASE_REALTIME_SETUP.md](SUPABASE_REALTIME_SETUP.md) - Guia de configuração do Realtime
+- [TESTING_GUIDE.md](TESTING_GUIDE.md) - Guia completo de testes
+
+### Testes
+
+Execute a suite de testes automatizada:
+
+```bash
+python test_vendedor_features.py
+```
+
+---
+
 ## 👥 Autores
 
 - [Allan Farias](https://github.com/allanjfarias)

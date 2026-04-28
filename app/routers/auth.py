@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, status, Form, File, UploadFile
+from fastapi import APIRouter, HTTPException, status, Form, File, UploadFile, Depends
+from app.core.supabase_client import get_supabase_client
+from app.core.security import get_token
 from typing import Optional,Union,Literal
 
 from app.schemas.auth import (
@@ -28,7 +30,9 @@ async def signup(
     telefone: Optional[str] = Form(None),
     nome_barraca: Optional[str] = Form(None),
 
-    foto: Optional[UploadFile] = File(None)
+    foto: Optional[UploadFile] = File(None),
+    supabase_client  =Depends(get_supabase_client)
+    
 ):
     if role == "CLIENTE":
         if cpf or telefone or nome_barraca:
@@ -53,7 +57,7 @@ async def signup(
     }
 
     try:
-        return await auth_service.signup_user(data, foto)
+        return await auth_service.signup_user(data,supabase_client,foto)
 
     except AuthError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -69,9 +73,9 @@ async def signup(
 
 
 @router.post("/signup-otp", response_model=MessageResponse)
-async def verify_email_otp(data: VerifyEmailRequest):
+def verify_email_otp(data: VerifyEmailRequest, supabase_client=Depends(get_supabase_client)):
     try:
-        auth_service.verify_signup_code(data.email, data.token)
+        auth_service.verify_signup_code(data.email, data.token, supabase_client)
         return {"message": "E-mail verificado com sucesso!"}
     except Exception as e:
         raise HTTPException(
@@ -79,9 +83,9 @@ async def verify_email_otp(data: VerifyEmailRequest):
 
 
 @router.post("/login")
-async def login(data: AuthRequest):
+def login(data: AuthRequest, supabase_client=Depends(get_supabase_client)):
     try:
-        return auth_service.login_user(data.email, data.password)
+        return auth_service.login_user(data.email, data.password, supabase_client)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -89,16 +93,21 @@ async def login(data: AuthRequest):
         )
 
 
+
+
 @router.post("/check-email")
-async def check_email(data: EmailRequest):
-    exists = auth_service.check_email_exists(data.email)
+def check_email(data: EmailRequest, supabase_client=Depends(get_supabase_client)):
+    exists = auth_service.check_email_exists(data.email, supabase_client)
     return {"email": data.email, "exists": exists}
 
 
 @router.post("/logout", response_model=MessageResponse)
-async def logout_endpoint():
+def logout_endpoint(
+    supabase_client=Depends(get_supabase_client)
+    ):
     try:
-        auth_service.logout()
+        auth_service.logout(supabase_client)
+        
         return {"message": "Sessão encerrada com sucesso."}
     except Exception as e:
         raise HTTPException(
@@ -106,21 +115,22 @@ async def logout_endpoint():
 
 
 @router.post("/forgot-password", response_model=MessageResponse)
-async def forgot_password(data: ForgotPasswordRequest):
+def forgot_password(data: ForgotPasswordRequest, supabase_client=Depends(get_supabase_client)):
     try:
-        auth_service.send_recovery_email(data.email)
+        auth_service.send_recovery_email(data.email, supabase_client)
         return {"message": "Código de recuperação enviado para o seu e-mail."}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.post("/reset-password", response_model=MessageResponse)
-async def reset_password(data: ResetPasswordRequest):
+def reset_password(data: ResetPasswordRequest, supabase_client=Depends(get_supabase_client)):
     try:
         auth_service.reset_password_with_otp(
             email=data.email,
             token=data.token,
-            new_password=data.new_password
+            new_password=data.new_password,
+            supabase_client=supabase_client
         )
         return {"message": "Senha redefinida com sucesso!"}
     except Exception as e:
@@ -131,9 +141,9 @@ async def reset_password(data: ResetPasswordRequest):
 
 
 @router.post("/resend-signup")
-async def resend_signup(data: EmailRequest):
+def resend_signup(data: EmailRequest, supabase_client=Depends(get_supabase_client)):
     try:
-        auth_service.resend_signup_email(data.email)
+        auth_service.resend_signup_email(data.email, supabase_client)
         return {"message": "Código reenviado"}
     except AuthError as e:
         raise HTTPException(status_code=400, detail=str(e))
