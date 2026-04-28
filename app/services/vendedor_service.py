@@ -1,9 +1,8 @@
 from fastapi import HTTPException
-from app.core.supabase_client import supabase
 from app.core.logger import logger
 
 
-def update_vendedor_status(user_id: str, status: str):
+def update_vendedor_status(user_id: str, status: str, supabase_client):
     """
     Atualiza o status (online/offline) de um vendedor
     """
@@ -11,7 +10,7 @@ def update_vendedor_status(user_id: str, status: str):
         logger.info(f"[update_vendedor_status] user_id: {user_id}, status: {status}")
 
         response = (
-            supabase.table("vendedores")
+            supabase_client.table("vendedores")
             .update({"status": status})
             .eq("user_id", user_id)
             .execute()
@@ -30,10 +29,8 @@ def update_vendedor_status(user_id: str, status: str):
         raise HTTPException(status_code=500, detail=f"Erro ao atualizar status: {str(e)}")
 
 
-def save_vendedor_location(user_id: str, latitude: float, longitude: float, accuracy: float):
-    """
-    Salva a localização atual de um vendedor na tabela vendor_locations
-    """
+def save_vendedor_location(user_id: str, latitude: float, longitude: float, accuracy: float, supabase_client):
+    
     try:
         logger.info(f"[save_vendedor_location] user_id: {user_id}, lat: {latitude}, lng: {longitude}, accuracy: {accuracy}")
 
@@ -45,8 +42,9 @@ def save_vendedor_location(user_id: str, latitude: float, longitude: float, accu
         }
 
         response = (
-            supabase.table("vendor_locations")
-            .insert(location_data)
+            supabase_client.table("vendor_locations")
+            .update({'latitude': latitude, 'longitude': longitude})
+            .eq("user_id", user_id)
             .execute()
         )
 
