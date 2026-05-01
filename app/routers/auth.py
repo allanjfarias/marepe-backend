@@ -4,7 +4,7 @@ from app.core.security import get_token
 from typing import Optional,Union,Literal
 
 from app.schemas.auth import (
-    AuthError, AuthRequest, DatabaseError, EmailRequest, ForgotPasswordRequest, MessageResponse, ResetPasswordRequest, UploadError, ClienteResponse,AmbulanteResponse,BarraqueiroResponse, VerifyEmailRequest
+    AuthError, AuthRequest, DatabaseError, EmailRequest, ForgotPasswordRequest, MessageResponse, ResetPasswordRequest, UploadError, ClienteResponse,AmbulanteResponse,BarraqueiroResponse, VerifyEmailRequest, VerifyRecoveryOtpRequest
 )
 
 from app.services import auth_service
@@ -123,21 +123,25 @@ def forgot_password(data: ForgotPasswordRequest, supabase_client=Depends(get_sup
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/reset-password", response_model=MessageResponse)
-def reset_password(data: ResetPasswordRequest, supabase_client=Depends(get_supabase_client)):
+@router.post("/verify-recovery-otp")
+def verify_recovery_otp(data: VerifyRecoveryOtpRequest, supabase_client=Depends(get_supabase_client)):
     try:
-        auth_service.reset_password_with_otp(
-            email=data.email,
-            token=data.token,
-            new_password=data.new_password,
-            supabase_client=supabase_client
-        )
-        return {"message": "Senha redefinida com sucesso!"}
+        tokens = auth_service.verify_recovery_otp(data.email, data.token, supabase_client)
+        return tokens
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Não foi possível redefinir a senha. O código pode estar incorreto ou expirado."
+            status_code=400, detail="Código inválido ou expirado."
         )
+
+
+@router.post("/reset-password")
+def reset_password(data: ResetPasswordRequest, supabase_client=Depends(get_supabase_client)):
+    try:
+        auth_service.update_password(data.access_token, data.refresh_token, data.new_password, supabase_client)
+        return {"message": "Senha atualizada com sucesso."}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e)
+                            )
 
 
 @router.post("/resend-signup")

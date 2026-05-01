@@ -58,16 +58,18 @@ class ForgotPasswordRequest(BaseModel):
     email: EmailStr
 
 
-class ResetPasswordRequest(BaseModel):
+class VerifyRecoveryOtpRequest(BaseModel):
     email: EmailStr
-    token: str = Field(..., description="Código OTP enviado por e-mail")
-    new_password: str = Field(..., min_length=8,
-                              description="A nova senha deve ter ao menos 8 caracteres")
+    token: str  
 
+
+class ResetPasswordRequest(BaseModel):
+    access_token: str
+    refresh_token: str
+    new_password: str = Field(..., min_length=8, description="A senha deve ter ao menos 8 caracteres")
 
 class MessageResponse(BaseModel):
     message: str
-
 
 class AuthError(Exception):
     pass

@@ -153,24 +153,6 @@ def send_recovery_email(email: str, supabase_client):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-def reset_password_with_otp(email: str, token: str, new_password: str, supabase_client):
-    try:
-        verify_res = supabase_client.auth.verify_otp({
-            "email": email,
-            "token": token,
-            "type": "recovery"
-        })
-
-        if verify_res.session:
-            return supabase_client.auth.update_user({
-                "password": new_password
-            })
-
-        raise HTTPException(
-            status_code=400, detail="Token de recuperação inválido.")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
 
 def logout(supabase_client):
     try:
@@ -199,3 +181,59 @@ def verify_signup_code(email: str, token: str, supabase_client):
         })
     except Exception as e:
         raise HTTPException(status_code=400, detail= f"Erro ao verificar código de email: {e}")
+
+
+
+
+def verify_recovery_otp(email: str, token: str, supabase_client):
+    try:
+        res = supabase_client.auth.verify_otp({
+            "email": email,
+            "token": token,
+            "type": "recovery"
+        })
+
+        if not res.session:
+            raise HTTPException(
+                status_code=400,
+                detail="Código inválido ou expirado."
+            )
+
+        return {
+            "access_token": res.session.access_token,
+            "refresh_token": res.session.refresh_token
+        }
+
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="Código inválido ou expirado."
+        )
+
+
+def update_password(
+    access_token: str,
+    refresh_token: str,
+    new_password: str,
+    supabase_client
+):
+    try:
+        supabase_client.auth.set_session(
+            access_token,
+            refresh_token
+        )
+
+        res = supabase_client.auth.update_user({
+            "password": new_password
+        })
+
+        return {
+            "message": "Senha atualizada com sucesso.",
+            "user": res.user
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Erro ao atualizar senha: {str(e)}"
+        )
