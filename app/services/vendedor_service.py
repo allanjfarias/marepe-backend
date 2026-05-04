@@ -1,61 +1,60 @@
 from fastapi import HTTPException
-from app.core.logger import logger
+from datetime import datetime, timezone
 
 
-def update_vendedor_status(user_id: str, status: str, supabase_client):
-    """
-    Atualiza o status (online/offline) de um vendedor
-    """
+def now_utc():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def update_vendedor_status(user_id, status, supabase_client):
     try:
-        logger.info(f"[update_vendedor_status] user_id: {user_id}, status: {status}")
-
         response = (
-            supabase_client.table("vendedores")
-            .update({"status": status})
-            .eq("user_id", user_id)
+            supabase_client.table("vendor_presence")
+            .update({
+                "status": status,
+                "last_seen_at": now_utc()
+            })
+            .eq("vendor_id", user_id)
             .execute()
         )
 
         if not response.data:
-            raise HTTPException(status_code=404, detail="Vendedor não encontrado")
+            raise HTTPException(404, "Vendedor não encontrado")
 
-        logger.info(f"[update_vendedor_status] Status atualizado com sucesso")
-        return response.data[0]
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"[update_vendedor_status] ERROR: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erro ao atualizar status: {str(e)}")
-
-
-def save_vendedor_location(user_id: str, latitude: float, longitude: float, accuracy: float, supabase_client):
-    
-    try:
-        logger.info(f"[save_vendedor_location] user_id: {user_id}, lat: {latitude}, lng: {longitude}, accuracy: {accuracy}")
-
-        location_data = {
-            "user_id": user_id,
-            "latitude": latitude,
-            "longitude": longitude,
-            "accuracy": accuracy
+        return {
+            "vendor_id": user_id,
+            "status": status,
+            "last_seen_at": now_utc()
         }
+
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+def save_vendedor_location(user_id, latitude, longitude, accuracy, supabase_client):
+    try:
+        point = f"SRID=4326;POINT({longitude} {latitude})"
 
         response = (
             supabase_client.table("vendor_locations")
-            .update({'latitude': latitude, 'longitude': longitude})
-            .eq("user_id", user_id)
+            .insert({
+                "vendor_id": user_id,
+                "location": point,
+                "accuracy": accuracy
+            })
             .execute()
         )
 
         if not response.data:
-            raise HTTPException(status_code=500, detail="Falha ao salvar localização")
+            raise HTTPException(500, "Falha ao salvar localização")
 
-        logger.info(f"[save_vendedor_location] Localização salva com sucesso")
+        supabase_client.table("vendor_presence").upsert({
+            "vendor_id": user_id,
+            "status": "online",
+            "last_seen_at": now_utc()
+        }).execute()
+
         return response.data[0]
 
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"[save_vendedor_location] ERROR: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Erro ao salvar localização: {str(e)}")
+        raise HTTPException(500, str(e))
