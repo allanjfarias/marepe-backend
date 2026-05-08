@@ -11,7 +11,7 @@ def get_token(
     credentials: HTTPAuthorizationCredentials = Depends(security)
 ) -> str:
     token = credentials.credentials
-    logger.info(f"Token recebido: {token}")
+    logger.info(f"Token recebido")
 
     if not token:
         raise HTTPException(status_code=401, detail="Token ausente")
@@ -24,14 +24,16 @@ def get_supabase_user(
     supabase=Depends(get_supabase_client)
 ):
     try:
-        user = supabase.auth.get_user(token)
+        user_response = supabase.auth.get_user(token)
+        user = user_response.user
 
-        if not user or not user.user:
+        if not user:
             raise HTTPException(status_code=401, detail="Usuário inválido")
 
-        return user.user
+        return user
 
-    except Exception:
+    except Exception as e:
+        logger.error(f"Auth error: {str(e)}")
         raise HTTPException(status_code=401, detail="Falha na autenticação")
 
 
