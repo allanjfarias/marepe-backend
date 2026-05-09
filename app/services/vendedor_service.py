@@ -40,7 +40,9 @@ def save_vendedor_location(user_id, latitude, longitude, accuracy, supabase_clie
             .insert({
                 "vendor_id": user_id,
                 "location": point,
-                "accuracy": accuracy
+                "accuracy": accuracy,
+                "latitude": latitude,
+                "longitude": longitude
             })
             .execute()
         )
