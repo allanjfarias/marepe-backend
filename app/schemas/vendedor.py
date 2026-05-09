@@ -1,5 +1,7 @@
 from pydantic import BaseModel, Field
 from typing import Literal
+from datetime import datetime
+from typing import Optional
 
 
 class StatusUpdateRequest(BaseModel):
@@ -29,3 +31,12 @@ class LocationResponse(BaseModel):
     longitude: float
     accuracy: float
     message: str
+
+
+class NearbyVendorSchema(BaseModel):
+    vendor_id: str
+    status: str
+    latitude: float
+    longitude: float
+    last_seen_at: Optional[datetime]
+    created_at: Optional[datetime]

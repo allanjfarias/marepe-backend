@@ -1,6 +1,9 @@
-from fastapi import APIRouter, HTTPException,Depends
+import re
+
+from fastapi import APIRouter, HTTPException,Depends, Query
 from app.core.security import get_user_id_from_token
 from app.schemas.vendedor import (
+    NearbyVendorSchema,
     StatusUpdateRequest,
     StatusUpdateResponse,
     LocationRequest,
@@ -52,4 +55,21 @@ async def save_location(
         longitude=data.longitude,
         accuracy=data.accuracy,
         message="Localização salva com sucesso"
+    )
+@router.get(
+    "/vendedor-location",
+    response_model=list[NearbyVendorSchema]
+)
+async def get_nearby_vendors(
+    supabase_client = Depends(get_supabase_client),
+
+    lat: float = Query(..., ge=-90, le=90),
+    lng: float = Query(..., ge=-180, le=180),
+    radius: int = Query(1000, gt=0),
+):
+    return vendedor_service.get_vendedor_location(
+        supabase_client,
+        lat,
+        lng,
+        radius
     )

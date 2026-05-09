@@ -1,6 +1,8 @@
 from fastapi import HTTPException
 from datetime import datetime, timezone
 
+from supabase_auth import Any, Dict, List
+
 
 def now_utc():
     return datetime.now(timezone.utc).isoformat()
@@ -40,7 +42,9 @@ def save_vendedor_location(user_id, latitude, longitude, accuracy, supabase_clie
             .insert({
                 "vendor_id": user_id,
                 "location": point,
-                "accuracy": accuracy
+                "accuracy": accuracy,
+                "latitude": latitude,
+                "longitude": longitude
             })
             .execute()
         )
@@ -58,3 +62,43 @@ def save_vendedor_location(user_id, latitude, longitude, accuracy, supabase_clie
 
     except Exception as e:
         raise HTTPException(500, str(e))
+    
+
+
+
+def get_vendedor_location(
+    supabase_client,
+    latitude: float,
+    longitude: float,
+    radius: int
+) -> List[Dict[str, Any]]:
+
+    result = supabase_client.rpc(
+        "nearby_vendors",
+        {
+            "lat": latitude,
+            "lng": longitude,
+            "radius": radius
+        }
+    ).execute()
+
+    rows = result.data or []
+
+    vendors = []
+
+    for row in rows:
+        location = row.get("location")
+
+        if location and "coordinates" in location:
+            lng_val, lat_val = location["coordinates"]
+
+            vendors.append({
+                "vendor_id": row["vendor_id"],
+                "status": row["status"],
+                "latitude": lat_val,
+                "longitude": lng_val,
+                "last_seen_at": row.get("last_seen_at"),
+                "created_at": row.get("created_at"),
+            })
+
+    return vendors
