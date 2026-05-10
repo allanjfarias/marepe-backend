@@ -73,3 +73,31 @@ async def get_nearby_vendors(
         lng,
         radius
     )
+
+@router.get("/categorias")
+async def listar_categorias():
+    return vendedor_service.listar_categorias()
+
+@router.get("/catalogo")
+async def get_catalogo(
+    user_id: str = Depends(get_user_id_from_token),
+    supabase_client = Depends(get_supabase_client)
+):
+    return vendedor_service.get_catalogo(
+        user_id,
+        supabase_client
+    )
+
+@router.put("/catalogo")
+async def salvar_catalogo(
+    data: dict,
+    user_id: str = Depends(get_user_id_from_token),
+    supabase_client = Depends(get_supabase_client)
+):
+    categorias = data.get("categorias", [])
+
+    return vendedor_service.salvar_catalogo(
+        user_id,
+        categorias,
+        supabase_client
+    )
