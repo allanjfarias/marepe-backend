@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from pydantic import BaseModel
 from app.schemas.auth import AuthError, DatabaseError, UploadError, AmbulanteResponse, ClienteResponse, BarraqueiroResponse
 from app.core.logger import logger
 
@@ -237,3 +238,4 @@ def update_password(
             status_code=400,
             detail=f"Erro ao atualizar senha: {str(e)}"
         )
+

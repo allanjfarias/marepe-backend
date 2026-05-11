@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, status, Form, File, UploadFile, Depends
 from app.core.supabase_client import get_supabase_client
-from app.core.security import get_token
 from typing import Optional,Union,Literal
 
 from app.schemas.auth import (
@@ -151,3 +150,5 @@ def resend_signup(data: EmailRequest, supabase_client=Depends(get_supabase_clien
         return {"message": "Código reenviado"}
     except AuthError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
