@@ -102,3 +102,52 @@ def get_vendedor_location(
             })
 
     return vendors
+
+CATEGORIAS_DISPONIVEIS = [
+    "Camarão",
+    "Milho",
+    "Queijo",
+    "Picolé",
+    "Castanha",
+    "Peixes"
+]
+
+def listar_categorias():
+    return CATEGORIAS_DISPONIVEIS
+
+def get_catalogo(user_id, supabase_client):
+    response = (
+        supabase_client.table("vendor_catalog")
+        .select("*")
+        .eq("vendor_id", user_id)
+        .execute()
+    )
+
+    return response.data
+
+def salvar_catalogo(user_id, categorias, supabase_client):
+    try:
+        supabase_client.table("vendor_catalog")\
+            .delete()\
+            .eq("vendor_id", user_id)\
+            .execute()
+
+        novos_registros = [
+            {
+                "vendor_id": user_id,
+                "categoria": categoria
+            }
+            for categoria in categorias
+        ]
+
+        if novos_registros:
+            supabase_client.table("vendor_catalog")\
+                .insert(novos_registros)\
+                .execute()
+
+        return {
+            "message": "Catálogo atualizado com sucesso"
+        }
+
+    except Exception as e:
+        raise HTTPException(500, str(e))
