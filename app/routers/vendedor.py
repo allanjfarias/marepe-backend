@@ -1,9 +1,7 @@
-import re
-
-from fastapi import APIRouter, HTTPException,Depends, Query
+from fastapi import APIRouter,Depends
 from app.core.security import get_user_id_from_token
 from app.schemas.vendedor import (
-    NearbyVendorSchema,
+    AtualizarCatalogoRequest,
     StatusUpdateRequest,
     StatusUpdateResponse,
     LocationRequest,
@@ -13,7 +11,6 @@ from app.services import vendedor_service
 from app.core.supabase_client import get_supabase_client
 
 router = APIRouter(tags=["Vendedor"])
-
 
 
 
@@ -56,20 +53,24 @@ async def save_location(
         accuracy=data.accuracy,
         message="Localização salva com sucesso"
     )
-@router.get(
-    "/vendedor-location",
-    response_model=list[NearbyVendorSchema]
-)
-async def get_nearby_vendors(
-    supabase_client = Depends(get_supabase_client),
 
-    lat: float = Query(..., ge=-90, le=90),
-    lng: float = Query(..., ge=-180, le=180),
-    radius: int = Query(1000, gt=0),
+
+@router.put("/catalogo")
+async def salvar_catalogo(
+    data: AtualizarCatalogoRequest,
+    user_id: str = Depends(get_user_id_from_token),
+    supabase_client = Depends(get_supabase_client)
 ):
-    return vendedor_service.get_vendedor_location(
-        supabase_client,
-        lat,
-        lng,
-        radius
+    return vendedor_service.salvar_catalogo(
+        user_id,
+        data.categorias,
+        supabase_client
     )
+
+
+
+@router.get("/catalogo/categorias")
+async def listar_categorias(
+    supabase_client = Depends(get_supabase_client)
+):
+    return vendedor_service.get_categorias(supabase_client)

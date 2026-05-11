@@ -1,7 +1,9 @@
+
 from fastapi import HTTPException
 from datetime import datetime, timezone
+from app.schemas.vendedor import (CatalogoResponse)
 
-from supabase_auth import Any, Dict, List
+from supabase_auth import Dict, List
 
 
 def now_utc():
@@ -12,11 +14,11 @@ def update_vendedor_status(user_id, status, supabase_client):
     try:
         response = (
             supabase_client.table("vendor_presence")
-            .update({
+            .upsert({
+                "vendor_id": user_id,
                 "status": status,
                 "last_seen_at": now_utc()
             })
-            .eq("vendor_id", user_id)
             .execute()
         )
 
@@ -52,12 +54,6 @@ def save_vendedor_location(user_id, latitude, longitude, accuracy, supabase_clie
         if not response.data:
             raise HTTPException(500, "Falha ao salvar localização")
 
-        supabase_client.table("vendor_presence").upsert({
-            "vendor_id": user_id,
-            "status": "online",
-            "last_seen_at": now_utc()
-        }).execute()
-
         return response.data[0]
 
     except Exception as e:
@@ -66,39 +62,92 @@ def save_vendedor_location(user_id, latitude, longitude, accuracy, supabase_clie
 
 
 
-def get_vendedor_location(
-    supabase_client,
-    latitude: float,
-    longitude: float,
-    radius: int
-) -> List[Dict[str, Any]]:
+def salvar_catalogo(user_id, categorias, supabase_client) -> Dict[str, str]:
+    try:
+        response = (
+            supabase_client
+            .table("vendedor_catalogo")
+            .select("id_categoria")
+            .eq("id_vendedor", user_id)
+            .execute()
+        )
 
-    result = supabase_client.rpc(
-        "nearby_vendors",
-        {
-            "lat": latitude,
-            "lng": longitude,
-            "radius": radius
+        categorias_atuais = {
+            item["id_categoria"]
+            for item in response.data
         }
-    ).execute()
 
-    rows = result.data or []
+        categorias_novas = {
+            str(categoria)
+            for categoria in categorias
+        }
 
-    vendors = []
+   
+        categorias_para_inserir = (
+            categorias_novas - categorias_atuais
+        )
 
-    for row in rows:
-        location = row.get("location")
+        categorias_para_remover = (
+            categorias_atuais - categorias_novas
+        )
 
-        if location and "coordinates" in location:
-            lng_val, lat_val = location["coordinates"]
+        if categorias_para_remover:
 
-            vendors.append({
-                "vendor_id": row["vendor_id"],
-                "status": row["status"],
-                "latitude": lat_val,
-                "longitude": lng_val,
-                "last_seen_at": row.get("last_seen_at"),
-                "created_at": row.get("created_at"),
-            })
+            (
+                supabase_client
+                .table("vendedor_catalogo")
+                .delete()
+                .eq("id_vendedor", user_id)
+                .in_(
+                    "id_categoria",
+                    list(categorias_para_remover)
+                )
+                .execute()
+            )
 
-    return vendors
+        if categorias_para_inserir:
+
+            registros = [
+                {
+                    "id_vendedor": user_id,
+                    "id_categoria": categoria_id
+                }
+                for categoria_id in categorias_para_inserir
+            ]
+
+            (
+                supabase_client
+                .table("vendedor_catalogo")
+                .insert(registros)
+                .execute()
+            )
+
+        return {
+            "message": "Catálogo atualizado com sucesso"
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+    
+
+
+def get_categorias(supabase_client) -> List[CatalogoResponse]:
+    try:
+        response = (
+            supabase_client
+            .table("catalogo")
+            .select("id, nome_categoria")
+            .eq("status_categoria", True)
+            .order("nome_categoria")
+            .execute()
+        )    
+        return response.data
+   
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )

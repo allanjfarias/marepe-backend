@@ -1,7 +1,9 @@
+
 from pydantic import BaseModel, Field
 from typing import Literal
 from datetime import datetime
 from typing import Optional
+
 
 
 class StatusUpdateRequest(BaseModel):
@@ -40,3 +42,12 @@ class NearbyVendorSchema(BaseModel):
     longitude: float
     last_seen_at: Optional[datetime]
     created_at: Optional[datetime]
+
+
+class AtualizarCatalogoRequest(BaseModel):
+    categorias: list = Field(..., description="Lista de IDs de categorias para atualizar o catálogo do vendedor")
+
+
+class CatalogoResponse(BaseModel):
+    id: str
+    nome_categoria: str
