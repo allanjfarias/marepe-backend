@@ -154,8 +154,8 @@ def listar_fila_ambulante(ambulante_id: str, supabase_client) -> List[Dict[str, 
             # Buscar dados do cliente
             cliente = (
                 supabase_client
-                .table("profiles")
-                .select("name, avatar_url")
+                .table("users")
+                .select("nome, email")
                 .eq("id", pedido["cliente_id"])
                 .single()
                 .execute()
@@ -176,8 +176,8 @@ def listar_fila_ambulante(ambulante_id: str, supabase_client) -> List[Dict[str, 
             fila_formatada.append({
                 "id": pedido["id"],
                 "cliente_id": pedido["cliente_id"],
-                "cliente_nome": cliente.data.get("name") if cliente.data else None,
-                "cliente_foto": cliente.data.get("avatar_url") if cliente.data else None,
+                "cliente_nome": cliente.data.get("nome") if cliente.data else None,
+                "cliente_foto": None,  # TODO: adicionar foto_url quando disponível
                 "categorias": pedido["categorias"],
                 "categorias_nomes": categorias_nomes,
                 "distancia_metros": None,  # TODO: calcular distância real
@@ -261,13 +261,13 @@ def aceitar_pedido(pedido_id: str, ambulante_id: str, supabase_client) -> Dict[s
         # Buscar nome do ambulante
         ambulante = (
             supabase_client
-            .table("profiles")
-            .select("name")
+            .table("users")
+            .select("nome")
             .eq("id", ambulante_id)
             .single()
             .execute()
         )
-        ambulante_nome = ambulante.data.get("name", "Ambulante") if ambulante.data else "Ambulante"
+        ambulante_nome = ambulante.data.get("nome", "Ambulante") if ambulante.data else "Ambulante"
 
         # Broadcasts
         broadcast_pedido_aceito(supabase_client, pedido.data["cliente_id"], pedido_id)
@@ -325,13 +325,13 @@ def negar_pedido(pedido_id: str, ambulante_id: str, supabase_client) -> Dict[str
         # Buscar nome do ambulante
         ambulante = (
             supabase_client
-            .table("profiles")
-            .select("name")
+            .table("users")
+            .select("nome")
             .eq("id", ambulante_id)
             .single()
             .execute()
         )
-        ambulante_nome = ambulante.data.get("name", "Ambulante") if ambulante.data else "Ambulante"
+        ambulante_nome = ambulante.data.get("nome", "Ambulante") if ambulante.data else "Ambulante"
 
         # Broadcast para o cliente
         broadcast_pedido_negado(supabase_client, pedido.data["cliente_id"], pedido_id, ambulante_nome)
