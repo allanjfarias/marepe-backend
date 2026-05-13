@@ -12,9 +12,9 @@ def expirar_pedidos_job():
         supabase_client = get_supabase_client()
         count = expirar_pedidos_antigos(supabase_client)
         if count > 0:
-            print(f"✅ {count} pedido(s) expirado(s)")
+            print(f"[OK] {count} pedido(s) expirado(s)")
     except Exception as e:
-        print(f"❌ Erro no job de expiração: {e}")
+        print(f"[ERROR] Erro no job de expiracao: {e}")
 
 
 def start_scheduler():
@@ -31,6 +31,6 @@ def start_scheduler():
     )
 
     scheduler.start()
-    print("🕐 Scheduler iniciado - Job de expiração ativo")
+    print("[SCHEDULER] Iniciado - Job de expiracao ativo")
 
     return scheduler

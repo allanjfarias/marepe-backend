@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 url: str = os.getenv("SUPABASE_URL")
-key: str = os.getenv("SUPABASE_KEY")
+# Usar SERVICE_KEY para bypass de RLS se disponível, senão usar KEY normal
+key: str = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY")
 
 
 def get_supabase_client() -> Client:

@@ -65,3 +65,7 @@ class CatalogoResponse(BaseModel):
     id: UUID
     nome_categoria: str
     is_active: bool
+
+
+class AtualizarCatalogoRequest(BaseModel):
+    categorias: List[UUID] = Field(..., description="Lista de IDs das categorias ativas")

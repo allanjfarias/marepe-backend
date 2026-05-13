@@ -105,3 +105,41 @@ def get_vendedores_proximos(
             })
 
     return vendors
+
+
+def get_catalogo_vendedor(vendor_id: str, supabase_client):
+    """Retorna o catálogo (com itens do cardápio) do vendedor para o vendedor logado"""
+    try:
+        logger.info(f"Buscando catálogo completo para o vendedor: {vendor_id}")
+
+        # Buscar itens do cardápio do vendedor
+        result = (
+            supabase_client.table("cardapio")
+            .select("*")
+            .eq("vendedor_id", vendor_id)
+            .eq("disponivel", True)
+            .execute()
+        )
+
+        return result.data
+
+    except Exception as e:
+        logger.error(f"Erro ao buscar catálogo: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Erro ao carregar o catálogo")
+
+
+def listar_todas_categorias(supabase_client):
+    """Lista todas as categorias disponíveis no sistema"""
+    try:
+        result = (
+            supabase_client.table("catalogo")
+            .select("id, nome_categoria")
+            .eq("status_categoria", True)
+            .execute()
+        )
+
+        return result.data
+
+    except Exception as e:
+        logger.error(f"Erro ao listar categorias: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Erro ao carregar categorias")
