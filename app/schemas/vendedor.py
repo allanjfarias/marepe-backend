@@ -1,6 +1,6 @@
-
+from uuid import UUID
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import List, Literal
 from datetime import datetime
 from typing import Optional
 
@@ -42,12 +42,26 @@ class NearbyVendorSchema(BaseModel):
     longitude: float
     last_seen_at: Optional[datetime]
     created_at: Optional[datetime]
+    categorias: list[str] = []
+    nome: Optional[str] = None
 
 
-class AtualizarCatalogoRequest(BaseModel):
-    categorias: list = Field(..., description="Lista de IDs de categorias para atualizar o catálogo do vendedor")
+class CategoriaVitrineDTO(BaseModel):
+    id: UUID
+    nome_categoria: str
+    is_active: bool
+
+
+class VitrineResponse(BaseModel):
+    categorias: List[CategoriaVitrineDTO]
+
+
+class ToggleCategoriaRequest(BaseModel):
+    id_categoria: UUID
+    is_active: bool
 
 
 class CatalogoResponse(BaseModel):
-    id: str
+    id: UUID
     nome_categoria: str
+    is_active: bool
