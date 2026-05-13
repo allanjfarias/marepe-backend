@@ -1,39 +1,42 @@
 from supabase_auth import Any, Dict, List
-from app.schemas.vendedor import CatalogoResponse
 from fastapi import HTTPException
+from app.core.logger import logger
 
 
-def get_catalogo_vendedor(
-    vendor_id,
-    supabase_client
-) ->  List[CatalogoResponse]:
+
+def get_vitrine_vendedor(vendor_id: str, supabase_client):
     try:
-
-        response = (
-            supabase_client
-            .table("vendedor_catalogo")
-            .select("""
-                catalogo!inner (
-                    id,
-                    nome_categoria
-                )
-            """)
-            .eq("id_vendedor", vendor_id)
-            .eq("catalogo.status_categoria", True)
+        logger.info(f"Buscando vitrine para o vendedor: {vendor_id}")
+        
+        result = (
+            supabase_client.table("catalogo")
+            .select("id, nome_categoria, vendedor_catalogo(is_active)")
+            .eq("status_categoria", True)
+            .eq("vendedor_catalogo.id_vendedor", vendor_id)
             .execute()
         )
 
-        return [
-            item["catalogo"]
-            for item in response.data
-        ]
+        vitrine = []
+
+        for item in result.data:
+            vinculo = item.get("vendedor_catalogo", [])
+            is_active = False
+            
+            if vinculo and len(vinculo) > 0:
+                is_active = vinculo[0].get("is_active", False)
+
+
+            vitrine.append({
+                "id": item["id"],
+                "nome_categoria": item["nome_categoria"],
+                "is_active": is_active
+            })
+
+        return vitrine
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
-    
+        logger.error(f"Erro ao buscar vitrine: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Erro ao carregar a vitrine do vendedor")
 
 def get_vendedores_proximos(
     supabase_client,

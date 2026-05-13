@@ -15,7 +15,7 @@ async def get_catalogo_vendedor(
     vendor_id: str,
     supabase_client = Depends(get_supabase_client)
 ):
-    return cliente_service.get_catalogo_vendedor(
+    return cliente_service.get_vitrine_vendedor(
         vendor_id,
         supabase_client
     )
