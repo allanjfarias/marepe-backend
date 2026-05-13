@@ -6,8 +6,8 @@ from typing import Optional
 class VendedorResponse(BaseModel):
     cpf: str
     telefone: str
-    foto_url: str
-    nome_barraca: str
+    foto_url: str | None = None
+    nome_barraca: str | None = None
 
 
 class ProfileResponse(BaseModel):

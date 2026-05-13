@@ -118,34 +118,30 @@ def login_user(email: str, password: str, supabase_client):
 
 
 def check_email_exists(email: str, supabase_client) -> bool:
+    """
+    Verifica se um email existe listando usuários via admin API
+    """
     logger.info(f"[START] email raw={repr(email)} len={len(email)}")
 
     email_clean = email.strip().lower()
-
     logger.info(f"[NORMALIZED] email_clean={repr(email_clean)}")
 
-    query = (
-        supabase_client.table("users")
-        .select("id")
-        .eq("email", email_clean)
-        .limit(1)
-    )
+    try:
+        # Lista todos os usuários e procura pelo email
+        users_response = supabase_client.auth.admin.list_users()
 
-    logger.info(f"[QUERY BUILT] {query}")
+        for user in users_response:
+            if user.email and user.email.lower() == email_clean:
+                logger.info(f"[EXISTS] Email {email_clean} encontrado")
+                return True
 
-    response = query.execute()
+        logger.info(f"[NOT EXISTS] Email {email_clean} não encontrado")
+        return False
 
-    logger.info(f"[RAW RESPONSE] {response}")
-
-    data = response.data
-
-    logger.info(f"[DATA] {data}")
-
-    exists = bool(data and len(data) > 0)
-
-    logger.info(f"[EXISTS] {exists}")
-
-    return exists
+    except Exception as e:
+        logger.error(f"[ERROR] Erro ao verificar email: {e}")
+        # Em caso de erro, retorna False por segurança
+        return False
 
 def send_recovery_email(email: str, supabase_client):
     try:
