@@ -22,7 +22,8 @@ def criar_pedido(
     cliente_id: str,
     ambulante_id: str,
     categorias: List[str],
-    supabase_client
+    supabase_client,
+    itens: List[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Cria um novo pedido e adiciona na fila do ambulante
@@ -31,6 +32,12 @@ def criar_pedido(
     - Ambulante não pode estar em atendimento (AC05)
     """
     try:
+        # Validar que tem categorias ou itens
+        if not categorias and not itens:
+            raise HTTPException(
+                status_code=400,
+                detail="Pedido deve conter categorias ou itens do cardápio"
+            )
         # Verificar se ambulante está em atendimento
         presenca = (
             supabase_client
@@ -64,13 +71,20 @@ def criar_pedido(
                 detail="Você já possui uma solicitação ativa com este ambulante."
             )
 
+        # Calcular valor total se houver itens
+        valor_total = None
+        if itens:
+            valor_total = sum(item["quantidade"] * item["preco_unitario"] for item in itens)
+
         # Criar pedido
         novo_pedido = {
             "cliente_id": cliente_id,
             "ambulante_id": ambulante_id,
             "categorias": categorias,
             "status": "pendente",
-            "created_at": now_utc()
+            "created_at": now_utc(),
+            "itens": itens,
+            "valor_total": valor_total
         }
 
         response = (
@@ -145,11 +159,11 @@ def listar_fila_ambulante(ambulante_id: str, supabase_client) -> List[Dict[str, 
         fila_formatada = []
 
         for idx, pedido in enumerate(pedidos, start=1):
-            # Calcular tempo restante (60s - tempo decorrido)
+            # Calcular tempo restante (30 minutos = 1800s - tempo decorrido)
             created_at = datetime.fromisoformat(pedido["created_at"].replace("Z", "+00:00"))
             agora = datetime.now(timezone.utc)
             tempo_decorrido = (agora - created_at).total_seconds()
-            tempo_restante = max(0, 60 - int(tempo_decorrido))
+            tempo_restante = max(0, 1800 - int(tempo_decorrido))
 
             # Buscar dados do cliente
             cliente = (
@@ -401,23 +415,34 @@ def cancelar_pedido(pedido_id: str, cliente_id: str, supabase_client) -> Dict[st
 
 def expirar_pedidos_antigos(supabase_client) -> int:
     """
-    Job que verifica pedidos pendentes com mais de 60s e os expira
+    Job que verifica pedidos pendentes com mais de 30 minutos (1800s) e os expira
     Retorna o número de pedidos expirados
     """
     try:
-        # Buscar pedidos pendentes com mais de 60s
-        limite_tempo = (datetime.now(timezone.utc) - timedelta(seconds=60)).isoformat()
+        # Buscar pedidos pendentes com mais de 30 minutos
+        agora = datetime.now(timezone.utc)
+        TIMEOUT_SECONDS = 1800  # 30 minutos
+        limite_tempo = (agora - timedelta(seconds=TIMEOUT_SECONDS)).isoformat()
+
+        print(f"🕐 [EXPIRACAO] Timeout configurado: {TIMEOUT_SECONDS}s ({TIMEOUT_SECONDS/60:.0f} minutos)")
+        print(f"🕐 [EXPIRACAO] Hora atual: {agora.isoformat()}")
+        print(f"🕐 [EXPIRACAO] Verificando pedidos criados antes de: {limite_tempo}")
 
         response = (
             supabase_client
             .table("pedidos")
-            .select("id, cliente_id")
+            .select("id, cliente_id, created_at")
             .eq("status", "pendente")
             .lt("created_at", limite_tempo)
             .execute()
         )
 
         pedidos_expirados = response.data or []
+
+        if pedidos_expirados:
+            print(f"🕐 [EXPIRACAO] Encontrados {len(pedidos_expirados)} pedidos para expirar")
+            for p in pedidos_expirados:
+                print(f"  - Pedido {p['id']} criado em {p['created_at']}")
 
         for pedido in pedidos_expirados:
             # Atualizar status
@@ -438,3 +463,125 @@ def expirar_pedidos_antigos(supabase_client) -> int:
     except Exception as e:
         print(f"Erro ao expirar pedidos: {e}")
         return 0
+
+
+def listar_pedidos_cliente(cliente_id: str, supabase_client) -> List[Dict[str, Any]]:
+    """Lista todos os pedidos do cliente logado"""
+    try:
+        response = (
+            supabase_client
+            .table("pedidos")
+            .select("*")
+            .eq("cliente_id", cliente_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+
+        pedidos = response.data or []
+        pedidos_formatados = []
+
+        for pedido in pedidos:
+            # Buscar nome do ambulante
+            ambulante = supabase_client.table("users").select("nome").eq("id", pedido["ambulante_id"]).single().execute()
+            ambulante_nome = ambulante.data.get("nome") if ambulante.data else "Ambulante"
+
+            # Calcular posição na fila se pendente
+            posicao = None
+            if pedido["status"] == "pendente":
+                posicao = calcular_posicao_fila(pedido["ambulante_id"], pedido["id"], supabase_client)
+
+            pedidos_formatados.append({
+                **pedido,
+                "ambulante_nome": ambulante_nome,
+                "posicao_fila": posicao,
+                "itens": pedido.get("itens"),
+                "valor_total": pedido.get("valor_total")
+            })
+
+        return pedidos_formatados
+
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+def listar_pedidos_ambulante(ambulante_id: str, supabase_client) -> List[Dict[str, Any]]:
+    """Lista todos os pedidos recebidos pelo ambulante"""
+    try:
+        response = (
+            supabase_client
+            .table("pedidos")
+            .select("*")
+            .eq("ambulante_id", ambulante_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+
+        pedidos = response.data or []
+        pedidos_formatados = []
+
+        for pedido in pedidos:
+            # Buscar nome do cliente
+            cliente = supabase_client.table("users").select("nome").eq("id", pedido["cliente_id"]).single().execute()
+            cliente_nome = cliente.data.get("nome") if cliente.data else "Cliente"
+
+            # Calcular posição na fila se pendente
+            posicao = None
+            if pedido["status"] == "pendente":
+                posicao = calcular_posicao_fila(ambulante_id, pedido["id"], supabase_client)
+
+            pedidos_formatados.append({
+                **pedido,
+                "cliente_nome": cliente_nome,
+                "posicao_fila": posicao,
+                "itens": pedido.get("itens"),
+                "valor_total": pedido.get("valor_total")
+            })
+
+        return pedidos_formatados
+
+    except Exception as e:
+        raise HTTPException(500, str(e))
+
+
+def atualizar_status_pedido(pedido_id: str, ambulante_id: str, novo_status: str, supabase_client) -> Dict[str, Any]:
+    """Atualiza o status de um pedido (apenas ambulante)"""
+    try:
+        # Verificar se pedido existe e pertence ao ambulante
+        pedido = (
+            supabase_client
+            .table("pedidos")
+            .select("*")
+            .eq("id", pedido_id)
+            .eq("ambulante_id", ambulante_id)
+            .single()
+            .execute()
+        )
+
+        if not pedido.data:
+            raise HTTPException(404, "Pedido não encontrado")
+
+        # Atualizar status
+        response = (
+            supabase_client
+            .table("pedidos")
+            .update({"status": novo_status})
+            .eq("id", pedido_id)
+            .execute()
+        )
+
+        # Se marcar como entregue, liberar o ambulante
+        if novo_status == "entregue":
+            supabase_client.table("vendor_presence").update({"status": "online"}).eq("vendor_id", ambulante_id).execute()
+
+        pedido_atualizado = response.data[0] if response.data else pedido.data
+
+        # Buscar nome do ambulante
+        ambulante = supabase_client.table("users").select("nome").eq("id", ambulante_id).single().execute()
+        pedido_atualizado["ambulante_nome"] = ambulante.data.get("nome") if ambulante.data else "Ambulante"
+
+        return pedido_atualizado
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, str(e))

@@ -2,7 +2,8 @@
 from fastapi import APIRouter,Depends, Query
 from app.core.supabase_client import get_supabase_client
 from app.schemas.vendedor import CatalogoResponse, NearbyVendorSchema, NearbyVendorSchema
-from app.services import cliente_service  
+from app.schemas.cardapio import CardapioItem
+from app.services import cliente_service, cardapio_service
 
 
 router = APIRouter(tags=["Cliente"])
@@ -38,3 +39,11 @@ async def get_nearby_vendors(
         lng,
         radius
     )
+
+
+@router.get("/ambulante/{ambulante_id}/cardapio", response_model=list[CardapioItem])
+async def get_cardapio(
+    ambulante_id: str,
+    supabase_client = Depends(get_supabase_client)
+):
+    return cardapio_service.get_cardapio_vendedor(ambulante_id, supabase_client)

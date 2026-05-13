@@ -42,6 +42,8 @@ class NearbyVendorSchema(BaseModel):
     longitude: float
     last_seen_at: Optional[datetime]
     created_at: Optional[datetime]
+    categorias: list[str] = []
+    nome: Optional[str] = None
 
 
 class CategoriaVitrineDTO(BaseModel):

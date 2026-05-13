@@ -6,7 +6,8 @@ from app.schemas.pedido import (
     PedidoResponse,
     PedidoFilaResponse,
     AceitarPedidoResponse,
-    NegarPedidoResponse
+    NegarPedidoResponse,
+    UpdateStatusRequest
 )
 from app.services import pedido_service
 from typing import List
@@ -35,7 +36,8 @@ async def criar_pedido(
         cliente_id=user_id,
         ambulante_id=data.ambulante_id,
         categorias=data.categorias,
-        supabase_client=supabase_client
+        supabase_client=supabase_client,
+        itens=[item.dict() for item in data.itens] if data.itens else None
     )
 
     return PedidoResponse(**pedido)
@@ -144,3 +146,46 @@ async def cancelar_pedido(
     )
 
     return resultado
+
+
+@router.get("/pedidos/cliente", response_model=List[PedidoResponse])
+async def listar_pedidos_cliente(
+    user_id: str = Depends(get_user_id_from_token),
+    supabase_client = Depends(get_supabase_client)
+):
+    """Lista todos os pedidos do cliente logado"""
+    pedidos = pedido_service.listar_pedidos_cliente(
+        cliente_id=user_id,
+        supabase_client=supabase_client
+    )
+    return [PedidoResponse(**p) for p in pedidos]
+
+
+@router.get("/pedidos/ambulante", response_model=List[PedidoResponse])
+async def listar_pedidos_ambulante(
+    user_id: str = Depends(get_user_id_from_token),
+    supabase_client = Depends(get_supabase_client)
+):
+    """Lista todos os pedidos recebidos pelo ambulante"""
+    pedidos = pedido_service.listar_pedidos_ambulante(
+        ambulante_id=user_id,
+        supabase_client=supabase_client
+    )
+    return [PedidoResponse(**p) for p in pedidos]
+
+
+@router.patch("/pedidos/{pedido_id}/status", response_model=PedidoResponse)
+async def atualizar_status_pedido(
+    pedido_id: str,
+    data: UpdateStatusRequest,
+    user_id: str = Depends(get_user_id_from_token),
+    supabase_client = Depends(get_supabase_client)
+):
+    """Atualiza status do pedido (apenas ambulante)"""
+    pedido = pedido_service.atualizar_status_pedido(
+        pedido_id=pedido_id,
+        ambulante_id=user_id,
+        novo_status=data.status,
+        supabase_client=supabase_client
+    )
+    return PedidoResponse(**pedido)

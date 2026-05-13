@@ -3,13 +3,22 @@ from typing import List, Literal, Optional
 from datetime import datetime
 
 # Status do pedido
-PedidoStatus = Literal["pendente", "aceito", "negado", "cancelado", "expirado"]
+PedidoStatus = Literal["pendente", "aceito", "negado", "cancelado", "expirado", "em_preparo", "pronto", "entregue"]
+
+
+class ItemPedido(BaseModel):
+    """Item do cardapio no pedido"""
+    item_id: str
+    nome: str
+    quantidade: int
+    preco_unitario: float
 
 
 class PedidoCreateRequest(BaseModel):
     """Request para criar um novo pedido"""
     ambulante_id: str = Field(..., description="ID do ambulante que receberá o pedido")
-    categorias: List[str] = Field(..., description="Lista de IDs de categorias solicitadas", min_length=1)
+    categorias: List[str] = Field(default=[], description="Lista de IDs de categorias solicitadas")
+    itens: Optional[List[ItemPedido]] = Field(None, description="Itens do cardapio selecionados")
 
 
 class PedidoResponse(BaseModel):
@@ -21,6 +30,9 @@ class PedidoResponse(BaseModel):
     status: PedidoStatus
     created_at: datetime
     posicao_fila: Optional[int] = None
+    itens: Optional[List[ItemPedido]] = None
+    valor_total: Optional[float] = None
+    ambulante_nome: Optional[str] = None
 
 
 class PedidoFilaResponse(BaseModel):
@@ -49,3 +61,8 @@ class NegarPedidoResponse(BaseModel):
     pedido_id: str
     message: str
     proximo_pedido: Optional[PedidoFilaResponse] = None
+
+
+class UpdateStatusRequest(BaseModel):
+    """Request para atualizar status do pedido"""
+    status: Literal["em_preparo", "pronto", "entregue"] = Field(..., description="Novo status do pedido")
