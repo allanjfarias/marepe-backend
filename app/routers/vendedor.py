@@ -79,9 +79,13 @@ async def obter_meu_catalogo(
     user_id: str = Depends(get_user_id_from_token),
     supabase_client = Depends(get_supabase_client)
 ):
-    """Retorna o catálogo do vendedor logado"""
-    from app.services import cliente_service
-    return cliente_service.get_catalogo_vendedor(user_id, supabase_client)
+    """Retorna as categorias do vendedor logado com status ativo/inativo"""
+    from app.core.logger import logger
+    logger.info(f"[ROUTER-GET-CATALOGO] user_id: {user_id}")
+    from app.services import vendedor_service
+    result = vendedor_service.get_categorias_vendedor(user_id, supabase_client)
+    logger.info(f"[ROUTER-GET-CATALOGO] Retornando {len(result)} categorias")
+    return result
 
 
 @router.put("/catalogo")
@@ -91,8 +95,12 @@ async def salvar_catalogo(
     supabase_client=Depends(get_supabase_client)
 ):
     """Atualiza o catálogo do vendedor"""
+    print(f"[ROUTER] PUT /vendedor/catalogo - user_id: {user_id}")
+    print(f"[ROUTER] Categorias recebidas: {data.categorias}")
     from app.services import vendedor_service
-    return vendedor_service.atualizar_catalogo(user_id, data, supabase_client)
+    result = vendedor_service.atualizar_catalogo(user_id, data, supabase_client)
+    print(f"[ROUTER] Resultado: {result}")
+    return result
 
 
 @router.get("/catalogo/categorias")
