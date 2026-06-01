@@ -27,9 +27,12 @@ def criar_pedido(
 ) -> Dict[str, Any]:
     """
     Cria um novo pedido e adiciona na fila do ambulante
+
     Validações:
-    - Cliente não pode ter pedido ativo com o mesmo ambulante
     - Ambulante não pode estar em atendimento (AC05)
+    - Pedido deve conter categorias ou itens
+
+    Nota: Cliente PODE fazer múltiplos pedidos para o mesmo ambulante.
     """
     try:
         # Validar que tem categorias ou itens
@@ -54,22 +57,9 @@ def criar_pedido(
                 detail="Ambulante está em atendimento no momento. Tente mais tarde."
             )
 
-        # Verificar se cliente já tem pedido ativo com este ambulante
-        pedido_ativo = (
-            supabase_client
-            .table("pedidos")
-            .select("id")
-            .eq("cliente_id", cliente_id)
-            .eq("ambulante_id", ambulante_id)
-            .in_("status", ["pendente", "aceito"])
-            .execute()
-        )
-
-        if pedido_ativo.data:
-            raise HTTPException(
-                status_code=400,
-                detail="Você já possui uma solicitação ativa com este ambulante."
-            )
+        # REMOVIDO: Validação que impedia múltiplos pedidos ao mesmo ambulante
+        # Agora o cliente pode fazer múltiplos pedidos para o mesmo ambulante
+        # Os pedidos entrarão na fila em ordem FIFO
 
         # Calcular valor total se houver itens
         valor_total = None
