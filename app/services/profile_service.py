@@ -84,11 +84,16 @@ async def update_my_profile(supabase_client, user_id: str, nome: str = None, tel
         # 1. Fazer upload da foto se fornecida
         if foto:
             try:
+                print(f"📸 [UPLOAD] Iniciando upload para user_id: {user_id}")
+                print(f"📸 [UPLOAD] Arquivo: {foto.filename}, Type: {foto.content_type}")
+
                 file_ext = foto.filename.split(".")[-1]
                 file_path = f"{user_id}/profile.{file_ext}"
 
                 file_bytes = await foto.read()
                 file_bytes = bytes(file_bytes)
+
+                print(f"📸 [UPLOAD] Tamanho: {len(file_bytes)} bytes, Path: {file_path}")
 
                 upload_res = supabase_client.storage.from_("perfil").upload(
                     file_path,
@@ -99,9 +104,13 @@ async def update_my_profile(supabase_client, user_id: str, nome: str = None, tel
                     }
                 )
 
+                print(f"✅ [UPLOAD] Upload concluído")
+
                 foto_url = supabase_client.storage.from_("perfil").get_public_url(file_path)
+                print(f"✅ [UPLOAD] URL gerada: {foto_url}")
 
             except Exception as e:
+                print(f"❌ [UPLOAD] Erro: {str(e)}")
                 raise Exception(f"Erro ao enviar imagem: {str(e)}")
 
         # 2. Atualizar dados do usuário no auth (nome)
@@ -129,22 +138,34 @@ async def update_my_profile(supabase_client, user_id: str, nome: str = None, tel
 
         if update_data:
             try:
+                print(f"💾 [DB] Atualizando dados: {update_data}")
+                print(f"💾 [DB] Role do usuário: {user_role}")
+
                 if user_role == "CLIENTE":
                     # Verificar se registro existe, se não, criar
                     existing = supabase_client.table("clientes").select("user_id").eq("user_id", user_id).execute()
+                    print(f"💾 [DB] Cliente existente: {bool(existing.data)}")
+
                     if not existing.data:
                         # Criar registro de cliente
-                        supabase_client.table("clientes").insert({
+                        print(f"💾 [DB] Criando novo registro de cliente")
+                        result = supabase_client.table("clientes").insert({
                             "user_id": user_id,
                             **update_data
                         }).execute()
+                        print(f"✅ [DB] Cliente criado: {result.data}")
                     else:
                         # Atualizar registro existente
-                        supabase_client.table("clientes").update(update_data).eq("user_id", user_id).execute()
+                        print(f"💾 [DB] Atualizando cliente existente")
+                        result = supabase_client.table("clientes").update(update_data).eq("user_id", user_id).execute()
+                        print(f"✅ [DB] Cliente atualizado: {result.data}")
                 else:
                     # Atualizar vendedor (ambulante ou barraqueiro)
-                    supabase_client.table("vendedores").update(update_data).eq("user_id", user_id).execute()
+                    print(f"💾 [DB] Atualizando vendedor")
+                    result = supabase_client.table("vendedores").update(update_data).eq("user_id", user_id).execute()
+                    print(f"✅ [DB] Vendedor atualizado: {result.data}")
             except Exception as e:
+                print(f"❌ [DB] Erro ao atualizar: {str(e)}")
                 raise Exception(f"Erro ao atualizar dados do usuário: {str(e)}")
 
         # 5. Retornar perfil atualizado
