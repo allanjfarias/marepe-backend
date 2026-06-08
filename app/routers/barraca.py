@@ -21,6 +21,19 @@ router = APIRouter(
 
 
 @router.get(
+    "/my-associations", 
+    response_model=AssociatedCustomersResponse
+)
+async def list_associated_customers(
+    # Renomeei para vendor_id_from_token para clareza
+    vendor_id_from_token: str = Depends(get_user_id_from_token),
+    supabase_client=Depends(get_supabase_client)
+):
+    customers = barraca_service.get_associated_customers(vendor_id_from_token, supabase_client)
+    return {"customers": customers}
+
+# 2. Rota dinâmica depois
+@router.get(
     "/{vendor_id}",
     response_model=EstablishmentDetailsResponse
 )
@@ -38,15 +51,3 @@ async def get_establishment_details(
     )
 
     return EstablishmentDetailsResponse(**establishment)
-
-
-@router.get(
-    "/my-associations", 
-    response_model=AssociatedCustomersResponse
-)
-async def list_associated_customers(
-    vendor_id: str = Depends(get_user_id_from_token),
-    supabase_client=Depends(get_supabase_client)
-):
-    customers = barraca_service.get_associated_customers(vendor_id, supabase_client)
-    return {"customers": customers}

@@ -133,11 +133,11 @@ def get_associated_customers(vendor_id: str, supabase_client):
         .select("""
             id,
             created_at,
-            users:customer_id (nome, foto_url)
+            users:customer_id (nome)
         """)
         .eq("vendor_id", vendor_id)
         .eq("active", True)
-        .order("created_at", desc=True) # Ordena pelos mais recentes
+        .order("created_at", desc=True)
         .execute()
     )
     
@@ -147,7 +147,6 @@ def get_associated_customers(vendor_id: str, supabase_client):
         {
             "association_id": item["id"],
             "nome": item["users"]["nome"] if item["users"] else "Usuário",
-            "foto": item["users"]["foto_url"] if item["users"] else None,
             "horario_associacao": item["created_at"]
         }
         for item in data

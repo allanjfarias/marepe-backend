@@ -16,7 +16,6 @@ class EstablishmentDetailsResponse(BaseModel):
 class AssociatedCustomer(BaseModel):
     association_id: str
     nome: str
-    foto: Optional[str] = None
     horario_associacao: datetime
 
 class AssociatedCustomersResponse(BaseModel):
