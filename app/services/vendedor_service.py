@@ -122,3 +122,97 @@ def toggle_catalogo(user_id: str, data: ToggleCategoriaRequest, supabase_client)
     except Exception as e:
         logger.error(f"Erro ao realizar toggle: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Erro ao atualizar status")
+
+
+def get_categorias_vendedor(user_id: str, supabase_client):
+    """Retorna todas as categorias com status ativo/inativo para o vendedor"""
+    try:
+        print(f"[SERVICE] Buscando categorias para vendedor: {user_id}")
+        logger.info(f"Buscando categorias para vendedor: {user_id}")
+
+        # Buscar todas as categorias disponíveis
+        todas_categorias = supabase_client.table("catalogo").select("id, nome_categoria").eq("status_categoria", True).execute()
+        print(f"[SERVICE] Total de categorias no sistema: {len(todas_categorias.data)}")
+
+        resultado = []
+
+        for categoria in todas_categorias.data:
+            categoria_id = categoria["id"]
+            categoria_id_str = str(categoria_id)
+
+            # Verificar se vendedor tem essa categoria e se está ativa
+            vinculo = supabase_client.table("vendedor_catalogo").select("is_active").eq(
+                "id_vendedor", user_id
+            ).eq("id_categoria", categoria_id_str).execute()
+
+            print(f"[SERVICE] Categoria {categoria_id_str}: vinculo={vinculo.data}")
+
+            is_active = False
+            if vinculo.data and len(vinculo.data) > 0:
+                is_active = vinculo.data[0].get("is_active", False)
+
+            resultado.append({
+                "id": categoria_id,
+                "nome_categoria": categoria["nome_categoria"],
+                "is_active": is_active
+            })
+
+        print(f"[SERVICE] Retornando {len(resultado)} categorias, ativas: {sum(1 for r in resultado if r['is_active'])}")
+        logger.info(f"Retornando {len(resultado)} categorias para vendedor {user_id}")
+        return resultado
+
+    except Exception as e:
+        logger.error(f"Erro ao buscar categorias do vendedor: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Erro ao carregar categorias")
+
+
+def atualizar_catalogo(user_id: str, data, supabase_client):
+    """Atualiza o catálogo do vendedor com as categorias selecionadas"""
+    try:
+        logger.info(f"Atualizando catálogo para user: {user_id}, categorias: {data.categorias}")
+
+        # Buscar todas as categorias disponíveis
+        todas_categorias = supabase_client.table("catalogo").select("id").eq("status_categoria", True).execute()
+        categorias_ids = [cat["id"] for cat in todas_categorias.data]
+
+        logger.info(f"Categorias disponíveis no sistema: {categorias_ids}")
+
+        # Para cada categoria disponível, criar ou atualizar o registro
+        categorias_selecionadas_str = [str(c) for c in data.categorias]
+        print(f"[SERVICE] Categorias selecionadas (como string): {categorias_selecionadas_str}")
+
+        for categoria_id in categorias_ids:
+            categoria_id_str = str(categoria_id)
+            is_active = categoria_id_str in categorias_selecionadas_str
+
+            print(f"[SERVICE] Processando categoria {categoria_id_str}: is_active={is_active}")
+            logger.info(f"Processando categoria {categoria_id}: is_active={is_active}")
+
+            # Verificar se já existe
+            existing = supabase_client.table("vendedor_catalogo").select("*").eq(
+                "id_vendedor", user_id
+            ).eq("id_categoria", str(categoria_id)).execute()
+
+            if existing.data and len(existing.data) > 0:
+                # Atualizar
+                print(f"[SERVICE] Atualizando categoria {categoria_id_str}: is_active={is_active}")
+                supabase_client.table("vendedor_catalogo").update({
+                    "is_active": is_active
+                }).eq("id_vendedor", user_id).eq("id_categoria", categoria_id_str).execute()
+                logger.info(f"Categoria {categoria_id} atualizada")
+            else:
+                # Inserir
+                print(f"[SERVICE] Inserindo categoria {categoria_id_str}: is_active={is_active}")
+                supabase_client.table("vendedor_catalogo").insert({
+                    "id_vendedor": user_id,
+                    "id_categoria": categoria_id_str,
+                    "is_active": is_active
+                }).execute()
+                logger.info(f"Categoria {categoria_id} inserida")
+
+        logger.info(f"Catálogo atualizado com sucesso para user {user_id}")
+        return {"success": True, "message": "Catálogo atualizado com sucesso"}
+
+    except Exception as e:
+        logger.error(f"Erro ao atualizar catálogo: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar catálogo: {str(e)}")

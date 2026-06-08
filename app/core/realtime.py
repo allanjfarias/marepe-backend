@@ -119,3 +119,18 @@ def broadcast_pin_vermelho(supabase_client: Client, ambulante_id: str, em_atendi
         })
     except Exception as e:
         print(f"Erro ao enviar broadcast pin_vermelho: {e}")
+
+
+def broadcast_nova_associacao(supabase_client: Client, vendor_id: str, customer_data: Dict[str, Any]):
+    """
+    Envia broadcast para o barraqueiro indicando que um novo cliente se associou
+    """
+    try:
+        channel = supabase_client.channel(f"establishment:{vendor_id}")
+        channel.send({
+            "type": "broadcast",
+            "event": "new_association",
+            "payload": customer_data 
+        })
+    except Exception as e:
+        print(f"Erro ao enviar broadcast nova_associacao: {e}")

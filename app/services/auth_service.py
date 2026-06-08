@@ -101,7 +101,15 @@ async def signup_user(data: dict,supabase_client, foto=None):
             supabase_client.table("vendedores").insert(vendedor_data).execute()
 
         except Exception as e:
-            raise DatabaseError(f"Erro ao salvar vendedor: {str(e)}")
+            error_msg = str(e)
+            # Verifica se é erro de CPF duplicado
+            if "vendedores_cpf_key" in error_msg or "duplicate key" in error_msg.lower():
+                raise DatabaseError("CPF já cadastrado. Use outro CPF ou faça login com a conta existente.")
+            # Verifica se é erro de telefone duplicado
+            elif "vendedores_telefone_key" in error_msg:
+                raise DatabaseError("Telefone já cadastrado. Use outro telefone ou faça login com a conta existente.")
+            else:
+                raise DatabaseError(f"Erro ao salvar vendedor: {error_msg}")
 
     return build_response(data["role"], user_id, data, foto_url)
 

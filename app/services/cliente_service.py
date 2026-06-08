@@ -1,6 +1,7 @@
 from supabase_auth import Any, Dict, List
 from fastapi import HTTPException
 from app.core.logger import logger
+from app.core.realtime import broadcast_nova_associacao
 
 
 
@@ -105,3 +106,81 @@ def get_vendedores_proximos(
             })
 
     return vendors
+
+
+def get_catalogo_vendedor(vendor_id: str, supabase_client):
+    """Retorna o catálogo (com itens do cardápio) do vendedor para o vendedor logado"""
+    try:
+        logger.info(f"Buscando catálogo completo para o vendedor: {vendor_id}")
+
+        # Buscar itens do cardápio do vendedor
+        result = (
+            supabase_client.table("cardapio")
+            .select("*")
+            .eq("vendedor_id", vendor_id)
+            .eq("disponivel", True)
+            .execute()
+        )
+
+        return result.data
+
+    except Exception as e:
+        logger.error(f"Erro ao buscar catálogo: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Erro ao carregar o catálogo")
+
+
+def listar_todas_categorias(supabase_client):
+    """Lista todas as categorias disponíveis no sistema"""
+    try:
+        result = (
+            supabase_client.table("catalogo")
+            .select("id, nome_categoria")
+            .eq("status_categoria", True)
+            .execute()
+        )
+
+        return result.data
+
+    except Exception as e:
+        logger.error(f"Erro ao listar categorias: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Erro ao carregar categorias")
+    
+
+
+
+
+def create_association(customer_id: str, vendor_id: str, supabase_client):
+    # 1. AC04: Verificar se já existe associação ativa antes de criar
+    existing_check = (
+        supabase_client
+        .table("customer_associations")
+        .select("id")
+        .eq("customer_id", customer_id)
+        .eq("active", True)
+        .execute()
+    )
+
+    if existing_check.data:
+        raise HTTPException(
+            status_code=409,
+            detail="O cliente já possui uma associação ativa."
+        )
+
+    # 2. AC02: Criação do registro
+    new_association = (
+        supabase_client
+        .table("customer_associations")
+        .insert({
+            "customer_id": customer_id,
+            "vendor_id": vendor_id,
+            "active": True
+        })
+        .execute()
+    )
+    broadcast_nova_associacao(
+        supabase_client,
+        vendor_id,
+        {"customer_id": customer_id, "status": "ativa"}
+    )
+
+    return {"message": "Associação criada com sucesso"}

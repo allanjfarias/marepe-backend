@@ -1,5 +1,6 @@
 
-from fastapi import APIRouter,Depends, Query
+from fastapi import APIRouter,Depends, HTTPException, Query
+from app.core.security import get_user_id_from_token
 from app.core.supabase_client import get_supabase_client
 from app.schemas.vendedor import CatalogoResponse, NearbyVendorSchema, NearbyVendorSchema
 from app.schemas.cardapio import CardapioItem
@@ -47,3 +48,28 @@ async def get_cardapio(
     supabase_client = Depends(get_supabase_client)
 ):
     return cardapio_service.get_cardapio_vendedor(ambulante_id, supabase_client)
+
+
+
+@router.post("/associations", status_code=201)
+async def create_association_endpoint(
+    vendor_id: str, # Recebido no body ou query param, conforme seu design
+    user_id: str = Depends(get_user_id_from_token),
+    supabase_client=Depends(get_supabase_client)
+):
+    try:
+        return cliente_service.create_association(
+            customer_id=user_id,
+            vendor_id=vendor_id,
+            supabase_client=supabase_client
+        )
+    except HTTPException as e:
+        # Repassa o erro 409 caso a regra de negócio falhe
+        raise e
+    except Exception as e:
+        # EX01: Tratamento de exceção genérica
+        print(f"Erro ao criar associação: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Não foi possível se associar no momento. Tente novamente."
+        )
