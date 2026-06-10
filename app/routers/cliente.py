@@ -73,3 +73,49 @@ async def create_association_endpoint(
             status_code=500,
             detail="Não foi possível se associar no momento. Tente novamente."
         )
+
+
+@router.get("/my-association")
+async def get_my_association(
+    user_id: str = Depends(get_user_id_from_token),
+    supabase_client=Depends(get_supabase_client)
+):
+    try:
+        association = cliente_service.get_client_association(
+            customer_id=user_id,
+            supabase_client=supabase_client
+        )
+        if not association:
+            raise HTTPException(
+                status_code=404,
+                detail="Nenhuma associação ativa encontrada"
+            )
+        return association
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Erro ao buscar associação: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Erro ao buscar associação"
+        )
+
+
+@router.delete("/association", status_code=200)
+async def delete_association_endpoint(
+    user_id: str = Depends(get_user_id_from_token),
+    supabase_client=Depends(get_supabase_client)
+):
+    try:
+        return cliente_service.delete_association(
+            customer_id=user_id,
+            supabase_client=supabase_client
+        )
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"Erro ao desassociar: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Não foi possível desassociar no momento. Tente novamente."
+        )
