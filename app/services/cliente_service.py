@@ -184,3 +184,75 @@ def create_association(customer_id: str, vendor_id: str, supabase_client):
     )
 
     return {"message": "Associação criada com sucesso"}
+
+
+def get_client_association(customer_id: str, supabase_client):
+    """Busca a associação ativa do cliente e retorna os detalhes do estabelecimento"""
+    try:
+        # Buscar associação ativa
+        response = (
+            supabase_client
+            .table("customer_associations")
+            .select("vendor_id")
+            .eq("customer_id", customer_id)
+            .eq("active", True)
+            .maybe_single()
+            .execute()
+        )
+
+        if not response.data:
+            return None
+
+        vendor_id = response.data["vendor_id"]
+
+        # Buscar detalhes do estabelecimento
+        from app.services.barraca_service import _get_establishment
+        establishment = _get_establishment(vendor_id, supabase_client)
+
+        return {
+            "vendor_id": establishment["user_id"],
+            "establishment_name": establishment["nome_barraca"],
+            "owner_name": establishment["nome"],
+            "association_status": "this"
+        }
+
+    except Exception as e:
+        logger.error(f"Erro ao buscar associação do cliente: {str(e)}", exc_info=True)
+        return None
+
+
+def delete_association(customer_id: str, supabase_client):
+    """Desativa a associação do cliente"""
+    try:
+        # Buscar associação ativa
+        existing = (
+            supabase_client
+            .table("customer_associations")
+            .select("id, vendor_id")
+            .eq("customer_id", customer_id)
+            .eq("active", True)
+            .maybe_single()
+            .execute()
+        )
+
+        if not existing.data:
+            raise HTTPException(
+                status_code=404,
+                detail="Nenhuma associação ativa encontrada."
+            )
+
+        # Desativar associação
+        supabase_client.table("customer_associations").update({
+            "active": False
+        }).eq("id", existing.data["id"]).execute()
+
+        return {"message": "Desassociado com sucesso"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao desassociar cliente: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="Erro ao desassociar"
+        )
