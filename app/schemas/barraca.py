@@ -20,3 +20,10 @@ class AssociatedCustomer(BaseModel):
 
 class AssociatedCustomersResponse(BaseModel):
     customers: List[AssociatedCustomer]
+
+
+
+class VendorStandResponse(BaseModel):
+    vendor_id: str
+    latitude: float
+    longitude: float
