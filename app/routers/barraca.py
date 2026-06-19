@@ -1,9 +1,11 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form
 from typing import List, Optional
 
+from app.core import supabase_client
 from app.schemas.barraca import (
     AssociatedCustomersResponse,
     EstablishmentDetailsResponse,
+    ListVendorStandsResponse,
     VendorStandResponse
 )
 
@@ -23,7 +25,19 @@ router = APIRouter(
 
 
 @router.get(
-    "/my-associations", 
+    "/get-all-stands",
+    response_model=ListVendorStandsResponse
+)
+async def list_all_vendor_stands(
+    supabase_client=Depends(get_supabase_client),
+    user=Depends(get_user_id_from_token)
+):
+    stands = barraca_service.get_all_vendor_stands(supabase_client)
+    return {"stands": stands}
+
+
+@router.get(
+    "/my-associations",
     response_model=AssociatedCustomersResponse
 )
 async def list_associated_customers(
@@ -31,10 +45,13 @@ async def list_associated_customers(
     vendor_id_from_token: str = Depends(get_user_id_from_token),
     supabase_client=Depends(get_supabase_client)
 ):
-    customers = barraca_service.get_associated_customers(vendor_id_from_token, supabase_client)
+    customers = barraca_service.get_associated_customers(
+        vendor_id_from_token, supabase_client)
     return {"customers": customers}
 
 # 2. Rota dinâmica depois
+
+
 @router.get(
     "/{vendor_id}",
     response_model=EstablishmentDetailsResponse
@@ -55,7 +72,6 @@ async def get_establishment_details(
     return EstablishmentDetailsResponse(**establishment)
 
 
-
 @router.post(
     "/register-stand",
     response_model=VendorStandResponse
@@ -63,15 +79,9 @@ async def get_establishment_details(
 async def register_vendor_stand(
     latitude: float = Form(...),
     longitude: float = Form(...),
-
-    
-
     establishment_photos: Optional[List[UploadFile]] = File(None),
-    
     menu_photos: Optional[List[UploadFile]] = File(None),
-
     user=Depends(get_user_id_from_token),
-
     supabase_client=Depends(get_supabase_client)
 ):
 
