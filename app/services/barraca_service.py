@@ -269,3 +269,12 @@ async def create_vendor_stand(
         "latitude": latitude,
         "longitude": longitude
     }
+
+def get_all_vendor_stands(supabase_client) -> list:
+        response = (
+            supabase_client
+            .table("vendor_stands")
+            .select("vendor_id, latitude, longitude")
+            .execute()
+        )
+        return response.data

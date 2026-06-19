@@ -27,3 +27,7 @@ class VendorStandResponse(BaseModel):
     vendor_id: str
     latitude: float
     longitude: float
+
+
+class ListVendorStandsResponse(BaseModel):
+    stands: List[VendorStandResponse]   
