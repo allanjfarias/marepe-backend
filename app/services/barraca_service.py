@@ -1,6 +1,7 @@
 from fastapi import HTTPException
+from pydantic.v1 import ValidationError
 from app.core.logger import logger
-
+from app.core.upload_photo import upload_image
 
 PHOTO_BUCKET = "vendor-media"
 
@@ -81,7 +82,6 @@ def _get_association_status(customer_id: str, vendor_id: str, supabase_client):
         
         association = response.data
 
-        
         if association is None:
             return "none"
 
@@ -107,21 +107,11 @@ def _get_signed_photos(vendor_id: str, photo_type: str, supabase_client):
     )
 
     data = response.data or []
-    signed_urls = []
 
-    for item in data:
-        try:
-            url_data = supabase_client.storage.from_(PHOTO_BUCKET).create_signed_url(
-                item["storage_path"], SIGNED_URL_TTL
-            )
-            if url_data and "signedURL" in url_data:
-                signed_urls.append(url_data["signedURL"])
-        except Exception as e:
-            logger.error(
-                f"Erro ao gerar URL para foto {item['storage_path']}: {e}")
-            continue
-
-    return signed_urls
+    return [
+        item["storage_path"]
+        for item in data
+    ]
 
 
 
@@ -151,3 +141,131 @@ def get_associated_customers(vendor_id: str, supabase_client):
         }
         for item in data
     ]
+
+
+async def create_vendor_stand(
+    vendor_id: str,
+    latitude: float,
+    longitude: float,
+    establishment_photos: list,
+    menu_photos: list,
+    supabase_client,
+):
+
+
+     
+
+    uploaded_paths = []
+
+    if not establishment_photos:
+        raise HTTPException(
+            status_code=400,
+            detail="Pelo menos uma foto do estabelecimento é obrigatória."
+        )
+
+    if not menu_photos:
+        raise HTTPException(
+            status_code=400,
+            detail="Pelo menos uma foto do cardápio é obrigatória."
+        )
+
+
+    try:
+        supabase_client.table(
+            "vendor_stands"
+        ).insert({
+            "vendor_id": vendor_id,
+            "latitude": latitude,
+            "longitude": longitude
+        }).execute()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao criar barraca: {str(e)}"
+        )
+
+    try:
+
+        photos_to_insert = []
+
+        for photo in establishment_photos:
+
+            url = await upload_image(
+                file=photo,
+                vendor_id=vendor_id,
+                folder="establishment",
+                supabase_client=supabase_client
+            )
+
+            # guardar para rollback
+            file_path = url.split("/vendor-media/")[-1]
+            uploaded_paths.append(file_path)
+
+            photos_to_insert.append({
+                "vendor_id": vendor_id,
+                "photo_type": "establishment",
+                "storage_path": url
+            })
+
+        for photo in menu_photos:
+
+            url = await upload_image(
+                file=photo,
+                vendor_id=vendor_id,
+                folder="menu",
+                supabase_client=supabase_client
+            )
+
+            file_path = url.split("/vendor-media/")[-1]
+            uploaded_paths.append(file_path)
+
+            photos_to_insert.append({
+                "vendor_id": vendor_id,
+                "photo_type": "menu",
+                "storage_path": url
+            })
+
+        (
+            supabase_client
+            .table("vendor_photos")
+            .insert(photos_to_insert)
+            .execute()
+        )
+
+    except Exception as e:
+
+        # remove barraca criada
+        try:
+            (
+                supabase_client
+                .table("vendor_stands")
+                .delete()
+                .eq("vendor_id", vendor_id)
+                .execute()
+            )
+        except Exception:
+            pass
+
+        # remove fotos do bucket
+        try:
+            if uploaded_paths:
+                (
+                    supabase_client
+                    .storage
+                    .from_("vendor-media")
+                    .remove(uploaded_paths)
+                )
+        except Exception:
+            pass
+
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao fazer upload das fotos: {str(e)}"
+        )
+
+    return {
+        "vendor_id": vendor_id,
+        "latitude": latitude,
+        "longitude": longitude
+    }

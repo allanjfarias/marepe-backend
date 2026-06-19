@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, UploadFile, File, Form
+from typing import List, Optional
 
 from app.schemas.barraca import (
     AssociatedCustomersResponse,
-    EstablishmentDetailsResponse
+    EstablishmentDetailsResponse,
+    VendorStandResponse
 )
 
 from app.services import barraca_service
@@ -51,3 +53,33 @@ async def get_establishment_details(
     )
 
     return EstablishmentDetailsResponse(**establishment)
+
+
+
+@router.post(
+    "/register-stand",
+    response_model=VendorStandResponse
+)
+async def register_vendor_stand(
+    latitude: float = Form(...),
+    longitude: float = Form(...),
+
+    
+
+    establishment_photos: Optional[List[UploadFile]] = File(None),
+    
+    menu_photos: Optional[List[UploadFile]] = File(None),
+
+    user=Depends(get_user_id_from_token),
+
+    supabase_client=Depends(get_supabase_client)
+):
+
+    return await barraca_service.create_vendor_stand(
+        vendor_id=user,
+        latitude=latitude,
+        longitude=longitude,
+        establishment_photos=establishment_photos,
+        menu_photos=menu_photos,
+        supabase_client=supabase_client
+    )
