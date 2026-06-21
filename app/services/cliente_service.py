@@ -193,7 +193,7 @@ def get_client_association(customer_id: str, supabase_client):
         response = (
             supabase_client
             .table("customer_associations")
-            .select("vendor_id")
+            .select("id, vendor_id")
             .eq("customer_id", customer_id)
             .eq("active", True)
             .maybe_single()
@@ -203,6 +203,7 @@ def get_client_association(customer_id: str, supabase_client):
         if not response.data:
             return None
 
+        association_id = response.data["id"]
         vendor_id = response.data["vendor_id"]
 
         # Buscar detalhes do estabelecimento
@@ -210,6 +211,7 @@ def get_client_association(customer_id: str, supabase_client):
         establishment = _get_establishment(vendor_id, supabase_client)
 
         return {
+            "association_id": association_id,
             "vendor_id": establishment["user_id"],
             "establishment_name": establishment["nome_barraca"],
             "owner_name": establishment["nome"],
