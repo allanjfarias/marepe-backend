@@ -130,7 +130,76 @@ def broadcast_nova_associacao(supabase_client: Client, vendor_id: str, customer_
         channel.send({
             "type": "broadcast",
             "event": "new_association",
-            "payload": customer_data 
+            "payload": customer_data
         })
     except Exception as e:
         print(f"Erro ao enviar broadcast nova_associacao: {e}")
+
+
+def broadcast_nova_mensagem(supabase_client: Client, association_id: str, message_data: Dict[str, Any]):
+    """
+    Envia broadcast de nova mensagem para o canal da associação
+    """
+    try:
+        channel = supabase_client.channel(f"association:{association_id}")
+        channel.send({
+            "type": "broadcast",
+            "event": "new_message",
+            "payload": message_data
+        })
+    except Exception as e:
+        print(f"Erro ao enviar broadcast nova_mensagem: {e}")
+
+
+def broadcast_association_closed(supabase_client: Client, association_id: str, closure_data: Dict[str, Any]):
+    """
+    Envia broadcast quando a associação é encerrada (MAREPE-274, 275)
+    """
+    try:
+        channel = supabase_client.channel(f"association:{association_id}")
+        channel.send({
+            "type": "broadcast",
+            "event": "association_closed",
+            "payload": closure_data
+        })
+    except Exception as e:
+        print(f"Erro ao enviar broadcast association_closed: {e}")
+
+
+def broadcast_charge_sent(supabase_client: Client, association_id: str, charge_data: Dict[str, Any]):
+    """
+    Envia broadcast quando o barraqueiro envia cobrança (MAREPE-307)
+    """
+    try:
+        channel = supabase_client.channel(f"association:{association_id}")
+        channel.send({
+            "type": "broadcast",
+            "event": "charge_sent",
+            "payload": charge_data
+        })
+    except Exception as e:
+        print(f"Erro ao enviar broadcast charge_sent: {e}")
+
+
+def broadcast_payment_confirmed(supabase_client: Client, association_id: str, vendor_id: str):
+    """
+    Envia broadcast quando o cliente confirma o pagamento (MAREPE-297)
+    """
+    try:
+        # Para o barraqueiro
+        vendor_channel = supabase_client.channel(f"establishment:{vendor_id}")
+        vendor_channel.send({
+            "type": "broadcast",
+            "event": "payment_confirmed",
+            "payload": {"association_id": association_id}
+        })
+
+        # Para o canal da associação
+        assoc_channel = supabase_client.channel(f"association:{association_id}")
+        assoc_channel.send({
+            "type": "broadcast",
+            "event": "payment_confirmed",
+            "payload": {"association_id": association_id}
+        })
+    except Exception as e:
+        print(f"Erro ao enviar broadcast payment_confirmed: {e}")

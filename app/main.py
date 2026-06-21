@@ -6,6 +6,8 @@ from app.routers.cliente import router as cliente_router
 from app.routers.profile import router as profile_router
 from app.routers.pedido import router as pedido_router
 from app.routers.barraca import router as barraca_router
+from app.routers.chat import router as chat_router
+from app.routers.association import router as association_router
 from app.core.scheduler import start_scheduler
 
 def create_app() -> FastAPI:
@@ -31,6 +33,8 @@ def create_app() -> FastAPI:
     app.include_router(profile_router, prefix="/profile")
     app.include_router(pedido_router, prefix="/api")
     app.include_router(barraca_router, prefix="/barraca")
+    app.include_router(chat_router, prefix="/chat")
+    app.include_router(association_router, prefix="/api")
 
 
     return app
