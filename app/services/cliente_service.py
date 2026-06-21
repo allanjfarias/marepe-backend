@@ -46,14 +46,27 @@ def get_vendedores_proximos(
     radius: int
 ) -> List[Dict[str, Any]]:
 
-    result = supabase_client.rpc(
-        "nearby_vendors",
-        {
-            "lat": latitude,
-            "lng": longitude,
-            "radius": radius
-        }
-    ).execute()
+    # Tenta usar a função que inclui barracas
+    try:
+        result = supabase_client.rpc(
+            "nearby_vendors_with_stands",
+            {
+                "lat": latitude,
+                "lng": longitude,
+                "radius": radius
+            }
+        ).execute()
+    except Exception as e:
+        # Fallback para função antiga se a nova não existir
+        print(f"Usando nearby_vendors (sem barracas): {e}")
+        result = supabase_client.rpc(
+            "nearby_vendors",
+            {
+                "lat": latitude,
+                "lng": longitude,
+                "radius": radius
+            }
+        ).execute()
 
     rows = result.data or []
 
@@ -94,6 +107,15 @@ def get_vendedores_proximos(
             except Exception as e:
                 print(f"Erro ao buscar nome do vendedor {vendor_id}: {e}")
 
+            # Buscar nome da barraca se for stand
+            nome_barraca = None
+            if row.get("is_stand"):
+                try:
+                    vendedor_response = supabase_client.table("vendedores").select("nome_barraca").eq("user_id", vendor_id).single().execute()
+                    nome_barraca = vendedor_response.data.get("nome_barraca") if vendedor_response.data else None
+                except Exception as e:
+                    print(f"Erro ao buscar nome_barraca: {e}")
+
             vendors.append({
                 "vendor_id": vendor_id,
                 "status": row["status"],
@@ -102,7 +124,8 @@ def get_vendedores_proximos(
                 "last_seen_at": row.get("last_seen_at"),
                 "created_at": row.get("created_at"),
                 "categorias": categorias,
-                "nome": nome_vendedor,
+                "nome": nome_barraca or nome_vendedor,
+                "tipo": "barraca" if row.get("is_stand") else "ambulante",
             })
 
     return vendors
@@ -207,7 +230,7 @@ def get_client_association(customer_id: str, supabase_client):
         vendor_id = response.data["vendor_id"]
 
         # Buscar detalhes do estabelecimento
-        from app.services.barraca_service import _get_establishment
+        from app.services.barraca_service import _get_establishment, _get_signed_photos
         establishment = _get_establishment(vendor_id, supabase_client)
 
         return {
@@ -215,6 +238,8 @@ def get_client_association(customer_id: str, supabase_client):
             "vendor_id": establishment["user_id"],
             "establishment_name": establishment["nome_barraca"],
             "owner_name": establishment["nome"],
+            "establishment_photos": _get_signed_photos(vendor_id, "establishment", supabase_client),
+            "menu_photos": _get_signed_photos(vendor_id, "menu", supabase_client),
             "association_status": "this"
         }
 
