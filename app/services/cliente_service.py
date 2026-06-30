@@ -70,6 +70,24 @@ def get_vendedores_proximos(
 
     rows = result.data or []
 
+    vendor_ids = [row["vendor_id"] for row in rows if row.get("vendor_id")]
+
+    alcance_map = {}
+    if vendor_ids:
+        try:
+            alcance_resp = (
+                supabase_client
+                .table("vendedores")
+                .select("user_id, alcance_km")
+                .in_("user_id", vendor_ids)
+                .execute()
+            )
+            if alcance_resp.data:
+                for item in alcance_resp.data:
+                    alcance_map[item["user_id"]] = item.get("alcance_km", 2)
+        except Exception as e:
+            print(f"[WARN] Erro ao buscar alcance_km: {e}")
+
     vendors = []
 
     for row in rows:
@@ -126,6 +144,7 @@ def get_vendedores_proximos(
                 "categorias": categorias,
                 "nome": nome_barraca or nome_vendedor,
                 "tipo": "barraca" if row.get("is_stand") else "ambulante",
+                "alcance_km": alcance_map.get(vendor_id, 2) if not row.get("is_stand") else None,
             })
 
     return vendors
@@ -212,11 +231,10 @@ def create_association(customer_id: str, vendor_id: str, supabase_client):
 def get_client_association(customer_id: str, supabase_client):
     """Busca a associação ativa do cliente e retorna os detalhes do estabelecimento"""
     try:
-        # Buscar associação ativa
         response = (
             supabase_client
             .table("customer_associations")
-            .select("id, vendor_id")
+            .select("id, vendor_id, status, charge_amount, charge_photo_url, pix_key")
             .eq("customer_id", customer_id)
             .eq("active", True)
             .maybe_single()
@@ -228,20 +246,30 @@ def get_client_association(customer_id: str, supabase_client):
 
         association_id = response.data["id"]
         vendor_id = response.data["vendor_id"]
+        status = response.data.get("status", "active")
 
-        # Buscar detalhes do estabelecimento
         from app.services.barraca_service import _get_establishment, _get_signed_photos
         establishment = _get_establishment(vendor_id, supabase_client)
 
-        return {
+        result = {
             "association_id": association_id,
             "vendor_id": establishment["user_id"],
             "establishment_name": establishment["nome_barraca"],
             "owner_name": establishment["nome"],
             "establishment_photos": _get_signed_photos(vendor_id, "establishment", supabase_client),
             "menu_photos": _get_signed_photos(vendor_id, "menu", supabase_client),
-            "association_status": "this"
+            "association_status": "this",
+            "status": status,
         }
+
+        if status == "pending_payment":
+            result.update({
+                "charge_amount": response.data.get("charge_amount"),
+                "charge_photo_url": response.data.get("charge_photo_url"),
+                "pix_key": response.data.get("pix_key"),
+            })
+
+        return result
 
     except Exception as e:
         logger.error(f"Erro ao buscar associação do cliente: {str(e)}", exc_info=True)

@@ -44,6 +44,8 @@ class NearbyVendorSchema(BaseModel):
     created_at: Optional[datetime]
     categorias: list[str] = []
     nome: Optional[str] = None
+    alcance_km: Optional[int] = None
+    tipo: Optional[str] = None
 
 
 class CategoriaVitrineDTO(BaseModel):

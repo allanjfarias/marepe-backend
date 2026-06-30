@@ -274,6 +274,134 @@ async def create_vendor_stand(
         "longitude": longitude
     }
 
+async def update_vendor_stand(
+    vendor_id: str,
+    latitude: float,
+    longitude: float,
+    establishment_photos: list,
+    menu_photos: list,
+    supabase_client,
+):
+    try:
+        (
+            supabase_client
+            .table("vendor_stands")
+            .update({
+                "latitude": latitude,
+                "longitude": longitude
+            })
+            .eq("vendor_id", vendor_id)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao atualizar localização da barraca: {str(e)}"
+        )
+
+    if establishment_photos:
+        try:
+            old_photos = (
+                supabase_client
+                .table("vendor_photos")
+                .select("storage_path")
+                .eq("vendor_id", vendor_id)
+                .eq("photo_type", "establishment")
+                .execute()
+            )
+            if old_photos.data:
+                old_paths = [
+                    p["storage_path"].split("/vendor-media/")[-1]
+                    for p in old_photos.data
+                ]
+                supabase_client.storage.from_("vendor-media").remove(old_paths)
+                (
+                    supabase_client
+                    .table("vendor_photos")
+                    .delete()
+                    .eq("vendor_id", vendor_id)
+                    .eq("photo_type", "establishment")
+                    .execute()
+                )
+
+            for photo in establishment_photos:
+                url = await upload_image(
+                    file=photo,
+                    vendor_id=vendor_id,
+                    folder="establishment",
+                    supabase_client=supabase_client
+                )
+                (
+                    supabase_client
+                    .table("vendor_photos")
+                    .insert({
+                        "vendor_id": vendor_id,
+                        "photo_type": "establishment",
+                        "storage_path": url
+                    })
+                    .execute()
+                )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao atualizar fotos do estabelecimento: {str(e)}"
+            )
+
+    if menu_photos:
+        try:
+            old_photos = (
+                supabase_client
+                .table("vendor_photos")
+                .select("storage_path")
+                .eq("vendor_id", vendor_id)
+                .eq("photo_type", "menu")
+                .execute()
+            )
+            if old_photos.data:
+                old_paths = [
+                    p["storage_path"].split("/vendor-media/")[-1]
+                    for p in old_photos.data
+                ]
+                supabase_client.storage.from_("vendor-media").remove(old_paths)
+                (
+                    supabase_client
+                    .table("vendor_photos")
+                    .delete()
+                    .eq("vendor_id", vendor_id)
+                    .eq("photo_type", "menu")
+                    .execute()
+                )
+
+            for photo in menu_photos:
+                url = await upload_image(
+                    file=photo,
+                    vendor_id=vendor_id,
+                    folder="menu",
+                    supabase_client=supabase_client
+                )
+                (
+                    supabase_client
+                    .table("vendor_photos")
+                    .insert({
+                        "vendor_id": vendor_id,
+                        "photo_type": "menu",
+                        "storage_path": url
+                    })
+                    .execute()
+                )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao atualizar fotos do cardápio: {str(e)}"
+            )
+
+    return {
+        "vendor_id": vendor_id,
+        "latitude": latitude,
+        "longitude": longitude
+    }
+
+
 def get_all_vendor_stands(supabase_client) -> list:
         response = (
             supabase_client
