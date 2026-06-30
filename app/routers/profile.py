@@ -22,6 +22,7 @@ async def update_profile(
     nome: str = Form(None),
     telefone: str = Form(None),
     nome_barraca: str = Form(None),
+    alcance_km: int = Form(None),
     foto: UploadFile = File(None),
     supabase_client=Depends(get_supabase_client),
     supabase_user=Depends(get_supabase_user)
@@ -33,5 +34,6 @@ async def update_profile(
         nome=nome,
         telefone=telefone,
         nome_barraca=nome_barraca,
+        alcance_km=alcance_km,
         foto=foto
     )

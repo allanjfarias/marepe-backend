@@ -8,6 +8,7 @@ class VendedorResponse(BaseModel):
     telefone: str
     foto_url: str | None = None
     nome_barraca: str | None = None
+    alcance_km: int | None = None
 
 
 class ClienteResponse(BaseModel):

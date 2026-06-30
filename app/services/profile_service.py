@@ -22,7 +22,8 @@ def get_my_profile(supabase_client, user_id: str):
                     cpf,
                     telefone,
                     foto_url,
-                    nome_barraca
+                    nome_barraca,
+                    alcance_km
                 )
             """)
             .eq("id", user_id)
@@ -76,7 +77,7 @@ def get_my_profile(supabase_client, user_id: str):
         raise Exception(f"Erro ao buscar usuário: {str(e)}")
 
 
-async def update_my_profile(supabase_client, user_id: str, nome: str = None, telefone: str = None, nome_barraca: str = None, foto=None):
+async def update_my_profile(supabase_client, user_id: str, nome: str = None, telefone: str = None, nome_barraca: str = None, alcance_km: int = None, foto=None):
     """Atualiza o perfil do usuário logado"""
     try:
         foto_url = None
@@ -124,6 +125,8 @@ async def update_my_profile(supabase_client, user_id: str, nome: str = None, tel
             update_data["telefone"] = telefone
         if nome_barraca:
             update_data["nome_barraca"] = nome_barraca
+        if alcance_km is not None:
+            update_data["alcance_km"] = alcance_km
         if foto_url:
             update_data["foto_url"] = foto_url
 

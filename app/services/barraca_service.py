@@ -15,7 +15,7 @@ def get_establishment_details(
 ):
     establishment = _get_establishment(vendor_id, supabase_client)
 
-    association_status = _get_association_status(
+    association_data = _get_association_status(
         customer_id,
         vendor_id,
         supabase_client
@@ -27,7 +27,8 @@ def get_establishment_details(
         "owner_name": establishment["nome"],
         "establishment_photos": _get_signed_photos(vendor_id, "establishment", supabase_client),
         "menu_photos": _get_signed_photos(vendor_id, "menu", supabase_client),
-        "association_status": association_status
+        "association_status": association_data["status"],
+        "association_id": association_data.get("association_id")
     }
 
 
@@ -68,7 +69,7 @@ def _get_association_status(customer_id: str, vendor_id: str, supabase_client):
         response = (
             supabase_client
             .table("customer_associations")
-            .select("vendor_id")
+            .select("vendor_id, association_id")
             .eq("customer_id", customer_id)
             .eq("active", True)
             .maybe_single()
@@ -77,23 +78,26 @@ def _get_association_status(customer_id: str, vendor_id: str, supabase_client):
 
         if response is None:
             print("AVISO: Supabase retornou None na query de associações.")
-            return "none"
+            return {"status": "none", "association_id": None}
 
-        
+
         association = response.data
 
         if association is None:
-            return "none"
+            return {"status": "none", "association_id": None}
 
         # Se chegou aqui, temos um registro válido
         if association.get("vendor_id") == vendor_id:
-            return "this"
+            return {
+                "status": "this",
+                "association_id": association.get("association_id")
+            }
 
-        return "other"
+        return {"status": "other", "association_id": None}
 
     except Exception as e:
         print(f"ERRO CRÍTICO EM _get_association_status: {str(e)}")
-        return "none"
+        return {"status": "none", "association_id": None}
 
 
 def _get_signed_photos(vendor_id: str, photo_type: str, supabase_client):
@@ -269,6 +273,134 @@ async def create_vendor_stand(
         "latitude": latitude,
         "longitude": longitude
     }
+
+async def update_vendor_stand(
+    vendor_id: str,
+    latitude: float,
+    longitude: float,
+    establishment_photos: list,
+    menu_photos: list,
+    supabase_client,
+):
+    try:
+        (
+            supabase_client
+            .table("vendor_stands")
+            .update({
+                "latitude": latitude,
+                "longitude": longitude
+            })
+            .eq("vendor_id", vendor_id)
+            .execute()
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao atualizar localização da barraca: {str(e)}"
+        )
+
+    if establishment_photos:
+        try:
+            old_photos = (
+                supabase_client
+                .table("vendor_photos")
+                .select("storage_path")
+                .eq("vendor_id", vendor_id)
+                .eq("photo_type", "establishment")
+                .execute()
+            )
+            if old_photos.data:
+                old_paths = [
+                    p["storage_path"].split("/vendor-media/")[-1]
+                    for p in old_photos.data
+                ]
+                supabase_client.storage.from_("vendor-media").remove(old_paths)
+                (
+                    supabase_client
+                    .table("vendor_photos")
+                    .delete()
+                    .eq("vendor_id", vendor_id)
+                    .eq("photo_type", "establishment")
+                    .execute()
+                )
+
+            for photo in establishment_photos:
+                url = await upload_image(
+                    file=photo,
+                    vendor_id=vendor_id,
+                    folder="establishment",
+                    supabase_client=supabase_client
+                )
+                (
+                    supabase_client
+                    .table("vendor_photos")
+                    .insert({
+                        "vendor_id": vendor_id,
+                        "photo_type": "establishment",
+                        "storage_path": url
+                    })
+                    .execute()
+                )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao atualizar fotos do estabelecimento: {str(e)}"
+            )
+
+    if menu_photos:
+        try:
+            old_photos = (
+                supabase_client
+                .table("vendor_photos")
+                .select("storage_path")
+                .eq("vendor_id", vendor_id)
+                .eq("photo_type", "menu")
+                .execute()
+            )
+            if old_photos.data:
+                old_paths = [
+                    p["storage_path"].split("/vendor-media/")[-1]
+                    for p in old_photos.data
+                ]
+                supabase_client.storage.from_("vendor-media").remove(old_paths)
+                (
+                    supabase_client
+                    .table("vendor_photos")
+                    .delete()
+                    .eq("vendor_id", vendor_id)
+                    .eq("photo_type", "menu")
+                    .execute()
+                )
+
+            for photo in menu_photos:
+                url = await upload_image(
+                    file=photo,
+                    vendor_id=vendor_id,
+                    folder="menu",
+                    supabase_client=supabase_client
+                )
+                (
+                    supabase_client
+                    .table("vendor_photos")
+                    .insert({
+                        "vendor_id": vendor_id,
+                        "photo_type": "menu",
+                        "storage_path": url
+                    })
+                    .execute()
+                )
+        except Exception as e:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao atualizar fotos do cardápio: {str(e)}"
+            )
+
+    return {
+        "vendor_id": vendor_id,
+        "latitude": latitude,
+        "longitude": longitude
+    }
+
 
 def get_all_vendor_stands(supabase_client) -> list:
         response = (

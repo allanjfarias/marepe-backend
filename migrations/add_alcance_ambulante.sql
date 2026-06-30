@@ -1,0 +1,2 @@
+ALTER TABLE vendedores
+ADD COLUMN alcance_km INTEGER DEFAULT 2;

@@ -93,3 +93,26 @@ async def register_vendor_stand(
         menu_photos=menu_photos,
         supabase_client=supabase_client
     )
+
+
+@router.patch(
+    "/update-stand",
+    response_model=VendorStandResponse
+)
+async def update_vendor_stand(
+    latitude: float = Form(...),
+    longitude: float = Form(...),
+    establishment_photos: Optional[List[UploadFile]] = File(None),
+    menu_photos: Optional[List[UploadFile]] = File(None),
+    user=Depends(get_user_id_from_token),
+    supabase_client=Depends(get_supabase_client)
+):
+
+    return await barraca_service.update_vendor_stand(
+        vendor_id=user,
+        latitude=latitude,
+        longitude=longitude,
+        establishment_photos=establishment_photos,
+        menu_photos=menu_photos,
+        supabase_client=supabase_client
+    )
