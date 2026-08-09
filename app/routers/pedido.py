@@ -25,8 +25,11 @@ async def criar_pedido(
     Cria uma nova solicitação de pedido
 
     Validações:
-    - Cliente não pode ter pedido ativo com o mesmo ambulante (ALT01)
     - Ambulante não pode estar em atendimento (AC05 - auto-negação)
+    - Pedido deve conter categorias ou itens
+
+    Nota: Cliente PODE fazer múltiplos pedidos para o mesmo ambulante.
+    Os pedidos entram na fila em ordem FIFO.
 
     Raises:
     - 400: Se validações falharem
